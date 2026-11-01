@@ -19,6 +19,8 @@
 #include "wled.h"
 #include "looks.h"
 #include "audio.h"
+#include "hue.h"
+#include "mqttc.h"
 #include "schedule.h"
 #include "lwip/tcp.h"
 #include <string.h>
@@ -35,7 +37,7 @@ typedef struct {
   struct tcp_pcb *pcb;
   int used, state;            // 0 headers, 1 body, 2 responding
   int hlen;
-  char method[8], path[48];
+  char method[8], path[96];
   uint32_t clen, got;
   int is_upload, upload_ok;
   int clen_chunk; uint32_t wr;
@@ -122,7 +124,7 @@ static int build_status(char *buf, int max) {
      g_power_scale < 256, g_fan_on, g_overtemp);
   for (int p = 0; p < 3; p++)
     AP("%s{\"ok\":%u,\"v\":%u,\"t\":%d}", p ? "," : "", g_sensors[p].ok, g_sensors[p].volt10, g_sensors[p].temp_c);
-  AP("],\"sleep\":%lu,\"audio\":%d,\"time\":%d", (unsigned long)sleep_remaining_s(), audio_active(), sched_time_valid());
+  AP("],\"mqtt\":%d,\"sleep\":%lu,\"audio\":%d,\"time\":%d", g_mqtt_connected, (unsigned long)sleep_remaining_s(), audio_active(), sched_time_valid());
   if (sched_time_valid()) {
     int32_t loc = sched_local();
     AP(",\"clock\":\"%02ld:%02ld\",\"sunset\":\"%02d:%02d\"", (long)((loc % 86400) / 3600), (long)((loc % 3600) / 60),
@@ -228,8 +230,8 @@ static int apply_config_form(char *body) {
     else if (!strcmp(k, "ssend"))  { ex.sync_send = n ? 1 : 0; ex_changed = 1; }
     else if (!strcmp(k, "srecv"))  { ex.sync_recv = n ? 1 : 0; ex_changed = 1; }
     else if (!strcmp(k, "aud"))    { ex.audio_on = n ? 1 : 0; ex_changed = 1; }
-    else if (!strcmp(k, "mqon"))   { ex.mqtt_on = n ? 1 : 0; ex_changed = 1; }
-    else if (!strcmp(k, "mqip"))   { if (parse_ip(v, ip)) { memcpy(ex.mqtt_ip, ip, 4); ex_changed = 1; } }
+    else if (!strcmp(k, "mqon"))   { ex.mqtt_on = n ? 1 : 0; ex_changed = 1; g_mqtt_reset = 1; }
+    else if (!strcmp(k, "mqip"))   { if (parse_ip(v, ip)) { memcpy(ex.mqtt_ip, ip, 4); ex_changed = 1; g_mqtt_reset = 1; } }
     else if (!strcmp(k, "mqport")) { if (n > 0 && n < 65536) { ex.mqtt_port = n; ex_changed = 1; } }
     else if (!strcmp(k, "mquser")) { strncpy(ex.mqtt_user, v, sizeof(ex.mqtt_user) - 1); ex_changed = 1; }
     else if (!strcmp(k, "mqpass")) { if (strcmp(v, "********")) { strncpy(ex.mqtt_pass, v, sizeof(ex.mqtt_pass) - 1); ex_changed = 1; } }
@@ -417,9 +419,19 @@ static void handle_request(conn_t *c) {
       respond_json(c, w - c->out);
     } else {
       int n = wled_get(c->path, c->out, sizeof(c->out));
+      const char *ct;
       if (n >= 0) respond_json(c, n);
+      else if ((n = hue_http("GET", c->path, c->body, c->out, sizeof(c->out), &ct)) >= 0) respond(c, "200 OK", ct, c->out, n, 0, 1);
       else respond_text(c, "404 Not Found", "Not found");
     }
+    return;
+  }
+  if (!strcmp(c->method, "PUT")) {
+    c->body[c->got < BODY_MAX ? c->got : BODY_MAX - 1] = 0;
+    const char *ct;
+    int n = hue_http("PUT", c->path, c->body, c->out, sizeof(c->out), &ct);
+    if (n >= 0) respond(c, "200 OK", ct, c->out, n, 0, 1);
+    else respond_text(c, "404 Not Found", "Not found");
     return;
   }
   if (!strcmp(c->method, "POST")) {
@@ -462,7 +474,12 @@ static void handle_request(conn_t *c) {
       reboot_at = millis() + 800;
     } else if (!strcmp(c->path, "/api/update")) {
       upload_finish(c);
-    } else respond_text(c, "404 Not Found", "Not found");
+    } else {
+      const char *ct;
+      int n = hue_http("POST", c->path, c->body, c->out, sizeof(c->out), &ct);
+      if (n >= 0) respond(c, "200 OK", ct, c->out, n, 0, 1);
+      else respond_text(c, "404 Not Found", "Not found");
+    }
     return;
   }
   respond_text(c, "405 Method Not Allowed", "Method not allowed");
@@ -473,7 +490,7 @@ static int parse_headers(conn_t *c) {
   if (!e) return 0;
   *e = 0;
   int hl = (e + 4) - c->hdr;
-  if (sscanf(c->hdr, "%7s %47s", c->method, c->path) != 2) return -1;
+  if (sscanf(c->hdr, "%7s %95s", c->method, c->path) != 2) return -1;
   char *q = strchr(c->path, '?'); if (q) *q = 0;
   c->clen = 0;
   for (char *l = strstr(c->hdr, "\r\n"); l; l = strstr(l + 2, "\r\n")) {

@@ -12,7 +12,7 @@ SRCS = $(wildcard src/*.c)
 LW = core/init.c core/def.c core/inet_chksum.c core/ip.c core/mem.c core/memp.c core/netif.c core/pbuf.c \
      core/stats.c core/sys.c core/tcp.c core/tcp_in.c core/tcp_out.c core/timeouts.c core/udp.c \
      core/ipv4/dhcp.c core/ipv4/etharp.c core/ipv4/icmp.c core/ipv4/igmp.c core/ipv4/ip4.c \
-     core/ipv4/ip4_addr.c core/ipv4/ip4_frag.c core/ipv4/acd.c netif/ethernet.c core/dns.c apps/sntp/sntp.c
+     core/ipv4/ip4_addr.c core/ipv4/ip4_frag.c core/ipv4/acd.c netif/ethernet.c core/dns.c apps/sntp/sntp.c apps/mqtt/mqtt.c
 OBJS = $(SRCS:src/%.c=build/%.o) $(LW:%.c=build/lwip/%.o)
 
 all: build/openpix.bin

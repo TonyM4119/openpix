@@ -11,6 +11,9 @@
 #include "dmx.h"
 #include "looks.h"
 #include "audio.h"
+#include "hue.h"
+#include "wsync.h"
+#include "mqttc.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -98,6 +101,8 @@ int main(void) {
   http_init();
   sched_init();
   audio_init();
+  hue_init();
+  wsync_init();
 
   for (;;) {
     wdt_kick();
@@ -108,6 +113,9 @@ int main(void) {
     sensors_task();
     dmx_task();
     looks_task();
+    hue_task();
+    wsync_task();
+    mqttc_task();
     sched_task();
     ui_task();
   }

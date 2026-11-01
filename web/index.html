@@ -111,6 +111,32 @@ body.light #toast{background:#fff;color:var(--txt)}
 <p class="mut">Sunset is worked out for the middle of your state. If it's a few minutes off for your town, adjust "Minutes after sunset".</p>
 <div class="row"><button class="pri" onclick="saveSch()">Save schedule</button><button onclick="syncTime()">Set clock from this device</button></div></div>
 
+<div class="card"><h2>Integrations</h2>
+<div class="grid2">
+<div><label>Alexa (pretends to be a Hue light)</label><select id="alexa"><option value="0">Off</option><option value="1">On</option></select></div>
+<div><label>Name Alexa will use</label><input id="aname"></div>
+<div><label>Send changes to other WLED / OpenPix</label><select id="ssend"><option value="0">Off</option><option value="1">On</option></select></div>
+<div><label>Follow other WLED / OpenPix</label><select id="srecv"><option value="0">Off</option><option value="1">On</option></select></div>
+<div><label>Music from network audio sync</label><select id="aud"><option value="0">Off</option><option value="1">On</option></select></div>
+<div></div>
+<div><label>MQTT</label><select id="mqon"><option value="0">Off</option><option value="1">On</option></select></div>
+<div><label>MQTT broker IP</label><input id="mqip"></div>
+<div><label>Port</label><input id="mqport" type="number"></div>
+<div><label>Topic</label><input id="mqtopic"></div>
+<div><label>User (optional)</label><input id="mquser"></div>
+<div><label>Password (optional)</label><input id="mqpass" type="password"></div>
+</div>
+<div class="row" style="margin-top:10px"><button class="pri" onclick="saveInt()">Save integrations</button><span class="mut" id="intmsg"></span></div>
+<details style="margin-top:12px"><summary class="mut" style="cursor:pointer">How to connect Home Assistant, Google Home, Alexa and GE Cync</summary>
+<div class="mut" style="margin-top:8px;line-height:1.6">
+<b>Home Assistant:</b> Settings → Devices &amp; services → Add integration → <b>WLED</b> → enter this controller's IP. You get on/off, brightness, effect, palette and color.<br>
+<b>Google Home:</b> add the controller to Home Assistant first, then install Home Assistant's <b>Matter bridge</b> add-on and add Home Assistant to Google Home as a Matter device. (Google has no local Hue-style option, so a hub is needed.)<br>
+<b>Alexa:</b> turn Alexa on above, save, then say "Alexa, discover devices". It appears as a dimmable light with the name above.<br>
+<b>GE Cync bulbs:</b> add them to Home Assistant with the <b>Cync</b> integration (needs at least one Wi-Fi Cync device). Then make an automation that copies this controller's on/off and color (the WLED light's color is the current effect's main color) to the bulbs.<br>
+<b>Music:</b> needs a device sending WLED audio sync (a WLED sound-reactive board, or an audio-sync sender app on a PC). Turn Music on above, then pick one of the 🎵 effects.<br>
+<b>MQTT topics:</b> <code>&lt;topic&gt;</code> ON/OFF/T/0-255, <code>&lt;topic&gt;/col</code> #RRGGBB, <code>&lt;topic&gt;/api</code> WLED JSON. Publishes <code>/g</code>, <code>/c</code>, <code>/status</code>.
+</div></details></div>
+
 <div class="card"><h2>Safety</h2><div class="grid2">
 <div><label>Power limit (amps, 0 = off)</label><input id="pla" type="number"></div>
 <div><label>mA per LED color at full</label><input id="mapc" type="number"></div>
@@ -197,7 +223,7 @@ $('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?(FX[s.
 +st('Power (est.)',(s.power_ma/1000).toFixed(1)+' A'+(s.limited?' (limited)':''))
 +(s.exp&&s.exp[0].ok?st('Port 1 board',(s.exp[0].v/10).toFixed(1)+' V · '+tTxt(s.exp[0].t)):st('Port 1 board','no reading'))
 +st('Fan',s.hot?'⚠ OVER TEMP':s.fan?'On':'Off')+st('Clock',s.time?t12(s.clock)+' (sunset '+t12(s.sunset)+')':'not set');
-$('sleepmsg').textContent=s.sleep?('Off in '+Math.ceil(s.sleep/60)+' min'):'';$('clk').textContent=s.time?('Controller time '+t12(s.clock)+', sunset '+t12(s.sunset)+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
+$('intmsg').textContent=(C&&C.mqon?(s.mqtt?'MQTT connected':'MQTT not connected'):'')+(s.audio?' · audio received':'');$('sleepmsg').textContent=s.sleep?('Off in '+Math.ceil(s.sleep/60)+' min'):'';$('clk').textContent=s.time?('Controller time '+t12(s.clock)+', sunset '+t12(s.sunset)+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
 function fmt(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60);return h?h+'h '+m+'m':m+'m '+t%60+'s'}
 function sel(v){return '<select>'+ORD.map((o,i)=>`<option value="${i}"${i==v?' selected':''}>${o}</option>`).join('')+'</select>'}
 function rows(){let h='';for(let i=T*16;i<T*16+16;i++){const o=C.out[i];
@@ -252,7 +278,7 @@ $('tz').value=c.tz;$('dst').value=c.dst;
 {let best=0,bd=1e9;STATES.forEach((x,i)=>{const d=(x[1]-c.lat/1e4)**2+(x[2]-c.lon/1e4)**2;if(d<bd){bd=d;best=i}});
 $('st').innerHTML=STATES.map((x,i)=>`<option value="${i}"${i==best?' selected':''}>${x[0]}</option>`).join('')}
 $('days').innerHTML=DAYS.map((d,i)=>`<label style="display:inline-flex;gap:4px;margin-right:8px;color:var(--txt)"><input type="checkbox" class="dy" ${c.sdays>>i&1?'checked':''}>${d}</label>`).join('');schUi();
-['pla','mapc','ptype','skhz'].forEach(k=>$(k).value=c[k]);$('dmx1').value=c.dmx[0][0];$('du1').value=c.dmx[0][1];$('dmx2').value=c.dmx[1][0];$('du2').value=c.dmx[1][1];$('w_skhz').style.display=c.ptype==0?'none':'';$('fan').value=tOut(c.fan);$('sdc').value=c.sdc?tOut(c.sdc):0;document.querySelectorAll('.tu').forEach(x=>x.textContent=UC()?'°C':'°F')}
+['pla','mapc','ptype','skhz','alexa','aname','ssend','srecv','aud','mqon','mqip','mqport','mqtopic','mquser','mqpass'].forEach(k=>{if(c[k]!==undefined)$(k).value=c[k]});$('dmx1').value=c.dmx[0][0];$('du1').value=c.dmx[0][1];$('dmx2').value=c.dmx[1][0];$('du2').value=c.dmx[1][1];$('w_skhz').style.display=c.ptype==0?'none':'';$('fan').value=tOut(c.fan);$('sdc').value=c.sdc?tOut(c.sdc):0;document.querySelectorAll('.tu').forEach(x=>x.textContent=UC()?'°C':'°F')}
 let CUST=[],PL=[];
 function custUi(){const n=+$('cn').value;$('custc').innerHTML=CUST.slice(0,n).map((h,i)=>`<input type="color" value="#${h}" style="width:64px;height:44px;padding:2px" oninput="CUST[${i}]=this.value.slice(1)">`).join('')}
 function plUi(){$('pl').innerHTML=PL.map((e,i)=>`<div class="row" style="margin-bottom:6px"><select style="flex:2" onchange="PL[${i}][0]=+this.value">${itemOpts(e[0])}</select>
@@ -265,6 +291,7 @@ function savePl(){const o={plon:$('plon').checked?1:0,pln:PL.length};PL.forEach(
 function saveSch(){let d=0;document.querySelectorAll('.dy').forEach((x,i)=>{if(x.checked)d|=1<<i});
 post({sch:$('sch').checked?1:0,osun:$('osun').value,onoff:$('onoff').value||0,onm:mh($('onm').value),offm:mh($('offm').value),tz:$('tz').value,dst:$('dst').value,lat:STATES[$('st').value][1],lon:STATES[$('st').value][2],sdays:d},'Schedule saved ✓')}
 function saveOut(){post({ptype:$('ptype').value,skhz:$('skhz').value,dmx1:$('dmx1').value,du1:$('du1').value,dmx2:$('dmx2').value,du2:$('du2').value},'Saved ✓').then(()=>fillExtra(C))}
+function saveInt(){const o={};['alexa','aname','ssend','srecv','aud','mqon','mqip','mqport','mqtopic','mquser','mqpass'].forEach(k=>o[k]=$(k).value);post(o,'Integrations saved ✓')}
 function saveSafe(){const sd=+$('sdc').value;post({pla:$('pla').value,mapc:$('mapc').value,fan:tIn(+$('fan').value),sdc:sd?tIn(sd):0},'Safety settings saved ✓')}
 const UC=()=>C&&C.unit==1,tOut=c=>UC()?c:Math.round(c*9/5+32),tIn=v=>UC()?v:Math.round((v-32)*5/9),tTxt=c=>tOut(c)+(UC()?' °C':' °F');
 async function syncTime(){try{await api('/api/time','utc='+Math.floor(Date.now()/1000));toast('Clock set ✓');status()}catch(e){toast(e.message)}}

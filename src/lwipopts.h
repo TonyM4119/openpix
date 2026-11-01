@@ -31,11 +31,15 @@ void sched_set_time(unsigned long utc);
 #define MEM_ALIGNMENT               4
 #define MEM_SIZE                    (20 * 1024)
 #define MEMP_NUM_PBUF               32
-#define MEMP_NUM_UDP_PCB            8
+#define MEMP_NUM_UDP_PCB            12
 #define MEMP_NUM_TCP_PCB            8
 #define MEMP_NUM_TCP_PCB_LISTEN     2
 #define MEMP_NUM_TCP_SEG            32
-#define MEMP_NUM_SYS_TIMEOUT        16
+#define MEMP_NUM_SYS_TIMEOUT        20
+#define LWIP_ALTCP                  0
+#define MEMP_NUM_MQTT_CLIENT        1
+#define MQTT_OUTPUT_RINGBUF_SIZE    512
+#define MQTT_VAR_HEADER_BUFFER_LEN  256
 #define PBUF_POOL_SIZE              16
 #define PBUF_POOL_BUFSIZE           1536
 #define TCP_MSS                     1460

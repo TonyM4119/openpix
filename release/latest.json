@@ -1,7 +1,7 @@
 {
- "version": "0.7.0",
- "file": "openpix-0.7.0.bin",
- "size": 129024,
- "crc32": 1264908376,
- "notes": "42 effects with 19 color palettes, presets, smooth fades between effects, gamma correction, holiday calendar (auto Halloween / Christmas / 4th of July), sleep timer, segments, live preview."
+ "version": "0.8.0",
+ "file": "openpix-0.8.0.bin",
+ "size": 141312,
+ "crc32": 4251042977,
+ "notes": "Alexa (local, no skill), sync with other WLED/OpenPix, music effects from network audio sync, MQTT, setup help for Home Assistant / Google Home / GE Cync."
 }

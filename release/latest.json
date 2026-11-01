@@ -1,7 +1,7 @@
 {
- "version": "0.3.2",
- "file": "openpix-0.3.2.bin",
- "size": 69632,
- "crc32": 1977446457,
- "notes": "4th of July button now shows fireworks (flag emoji does not display on Windows)."
+ "version": "0.3.3",
+ "file": "openpix-0.3.3.bin",
+ "size": 70656,
+ "crc32": 1672253440,
+ "notes": "Color order column no longer cut off on the outputs table."
 }

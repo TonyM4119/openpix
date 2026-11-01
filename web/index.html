@@ -23,9 +23,10 @@ input,select{background:#0f1419;color:var(--txt);border:1px solid #33404d;border
 input[type=checkbox]{width:18px;height:18px}
 label{font-size:13px;color:var(--mut)}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:640px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:720px}
 th{font-size:12px;color:var(--mut);font-weight:500;text-align:left;padding:4px}td{padding:3px}td input,td select{padding:5px;text-align:center}
 td:first-child{font-weight:600;white-space:nowrap;padding-right:8px}
+td select{min-width:82px;padding:5px 2px}td:last-child input{width:58px}td input[type=checkbox]{margin:0 auto;display:block}
 tr.warn input.u{border-color:var(--bad)}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222b34;border:1px solid var(--line);padding:10px 16px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none}
 #toast.on{opacity:1}.mut{color:var(--mut);font-size:13px}

@@ -1,6 +1,12 @@
 package com.tonym.openpix;
 
 import android.app.Activity;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.Settings;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,6 +22,8 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -25,6 +33,8 @@ import java.net.NetworkInterface;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -41,6 +51,10 @@ public class MainActivity extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService pool = Executors.newFixedThreadPool(4);
     private SharedPreferences prefs;
+    private File uiFile;
+    private int loadedUi;
+    static final String UI_URL = "https://raw.githubusercontent.com/TonyM4119/openpix/main/app/lights/src/main/assets/index.html";
+    static final String MARK = "<!--openpix-ui-->";
 
     @Override
     protected void onCreate(Bundle b) {
@@ -54,7 +68,31 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new Bridge(), "Native");
         setContentView(web);
-        web.loadUrl("file:///android_asset/index.html");
+        uiFile = new File(getFilesDir(), "ui.html");
+        loadUi();
+    }
+
+    private static int uiVer(String html) {
+        Matcher m = Pattern.compile("name=\"ui-version\" content=\"(\\d+)\"").matcher(html == null ? "" : html);
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+    }
+
+    private String readFile(File f) {
+        try (java.io.FileInputStream in = new java.io.FileInputStream(f)) {
+            return new String(readAll(in), StandardCharsets.UTF_8);
+        } catch (Exception e) { return null; }
+    }
+
+    /** Use the newest UI: the one downloaded from GitHub if newer than the bundled one. */
+    private void loadUi() {
+        String html;
+        try (InputStream in = getAssets().open("index.html")) {
+            html = new String(readAll(in), StandardCharsets.UTF_8);
+        } catch (Exception e) { html = "<p>UI missing</p>"; }
+        String cached = uiFile.exists() ? readFile(uiFile) : null;
+        if (cached != null && cached.contains(MARK) && uiVer(cached) > uiVer(html)) html = cached;
+        loadedUi = uiVer(html);
+        web.loadDataWithBaseURL("file:///android_asset/", html, "text/html", "utf-8", null);
     }
 
     @Override
@@ -108,6 +146,69 @@ public class MainActivity extends Activity {
                     js("__cb(" + q(id) + ",0," + q(e.getMessage()) + ")");
                 }
             });
+        }
+
+        @JavascriptInterface
+        public int apiLevel() { return 2; }
+
+        @JavascriptInterface
+        public int uiVersion() { return loadedUi; }
+
+        @JavascriptInterface
+        public int appVersion() {
+            try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode; }
+            catch (Exception e) { return 0; }
+        }
+
+        /** Download the latest UI page from GitHub; reload if it is newer. */
+        @JavascriptInterface
+        public void checkUi(String id) {
+            pool.execute(() -> {
+                try {
+                    Object[] r = request("GET", UI_URL + "?t=" + System.currentTimeMillis(), null, null, 8000);
+                    String html = (String) r[1];
+                    int v = uiVer(html);
+                    if ((int) r[0] == 200 && html.contains(MARK) && v > loadedUi) {
+                        try (FileOutputStream o = new FileOutputStream(uiFile)) { o.write(html.getBytes(StandardCharsets.UTF_8)); }
+                        js("__cb(" + q(id) + ",200,'updated')");
+                        ui.postDelayed(MainActivity.this::loadUi, 1200);
+                    } else js("__cb(" + q(id) + ",200,'same')");
+                } catch (Exception e) { js("__cb(" + q(id) + ",0," + q(e.getMessage()) + ")"); }
+            });
+        }
+
+        /** Download a new APK and hand it to Android's installer (user confirms). */
+        @JavascriptInterface
+        public String installApk(String url) {
+            if (Build.VERSION.SDK_INT >= 26 && !getPackageManager().canRequestPackageInstalls()) {
+                ui.post(() -> startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName()))));
+                return "permission";
+            }
+            DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            File f = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "Lights.apk");
+            if (f.exists()) f.delete();
+            DownloadManager.Request rq = new DownloadManager.Request(Uri.parse(url))
+                    .setTitle("Lights update")
+                    .setMimeType("application/vnd.android.package-archive")
+                    .setDestinationInExternalFilesDir(MainActivity.this, Environment.DIRECTORY_DOWNLOADS, "Lights.apk");
+            final long did = dm.enqueue(rq);
+            BroadcastReceiver rcv = new BroadcastReceiver() {
+                @Override public void onReceive(Context c, Intent i) {
+                    if (i.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) != did) return;
+                    try { unregisterReceiver(this); } catch (Exception ignored) { }
+                    Uri u = dm.getUriForDownloadedFile(did);
+                    if (u == null) { js("toast('Download failed')"); return; }
+                    Intent inst = new Intent(Intent.ACTION_VIEW);
+                    inst.setDataAndType(u, "application/vnd.android.package-archive");
+                    inst.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(inst);
+                }
+            };
+            IntentFilter filt = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+            if (Build.VERSION.SDK_INT >= 33) registerReceiver(rcv, filt, Context.RECEIVER_EXPORTED);
+            else registerReceiver(rcv, filt);
+            return "started";
         }
 
         @JavascriptInterface

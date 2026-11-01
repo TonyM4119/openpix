@@ -129,8 +129,8 @@ body.light #toast{background:#fff;color:var(--txt)}
 <div class="row" style="margin-top:10px"><button class="pri" onclick="saveInt()">Save integrations</button><span class="mut" id="intmsg"></span></div>
 <details style="margin-top:12px"><summary class="mut" style="cursor:pointer">How to connect Home Assistant, Google Home, Alexa and GE Cync</summary>
 <div class="mut" style="margin-top:8px;line-height:1.6">
-<b>Home Assistant:</b> Settings → Devices &amp; services → Add integration → <b>WLED</b> → enter this controller's IP. You get on/off, brightness, effect, palette and color.<br>
-<b>Google Home:</b> add the controller to Home Assistant first, then install Home Assistant's <b>Matter bridge</b> add-on and add Home Assistant to Google Home as a Matter device. (Google has no local Hue-style option, so a hub is needed.)<br>
+<b>Google Home / Gemini:</b> coming with a small ESP32 Matter bridge (see the OpenPix GitHub page).<br>
+<b>Home Assistant (optional):</b> Settings → Devices &amp; services → Add integration → <b>WLED</b> → enter this controller's IP. You get on/off, brightness, effect, palette and color.<br>
 <b>Alexa:</b> turn Alexa on above, save, then say "Alexa, discover devices". It appears as a dimmable light with the name above.<br>
 <b>GE Cync bulbs:</b> add them to Home Assistant with the <b>Cync</b> integration (needs at least one Wi-Fi Cync device). Then make an automation that copies this controller's on/off and color (the WLED light's color is the current effect's main color) to the bulbs.<br>
 <b>Music:</b> needs a device sending WLED audio sync (a WLED sound-reactive board, or an audio-sync sender app on a PC). Turn Music on above, then pick one of the 🎵 effects.<br>
@@ -207,9 +207,9 @@ body.light #toast{background:#fff;color:var(--txt)}
 <script>
 const ORD=['RGB','RBG','GRB','GBR','BRG','BGR'];
 const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🎆 4th of July','✨ Warm twinkle','🌈 Rainbow','🎨 My colors','⚪ Solid color',
-'Breathe','Wipe','Theater chase','Running lights','Sparkle','Glitter','🔥 Fire','☄️ Meteor','Comet','Scanner','Color flow','Gradient','❄️ Snowfall','🎇 Fireworks','Ripple','🕯️ Candle',
-'⚡ Lightning','Bouncing balls','Dissolve','Strobe','Stripes','Fade','Twinkle colors','Sinelon','Juggle','💓 Heartbeat','🌊 Ocean waves','Aurora','🚨 Police','Chase 3',
-'🎵 Music VU','🎵 Music beat','🎵 Music spectrum'];
+'🌬️ Breathe','🧹 Wipe','🎭 Theater chase','🏃 Running lights','💫 Sparkle','🌟 Glitter','🔥 Fire','☄️ Meteor','🌠 Comet','🔦 Scanner','🌀 Color flow','🌅 Gradient','❄️ Snowfall','🎇 Fireworks','💧 Ripple','🕯️ Candle',
+'⚡ Lightning','⚽ Bouncing balls','🌫️ Dissolve','📸 Strobe','🦓 Stripes','🌗 Fade','⭐ Twinkle colors','〰️ Sinelon','🤹 Juggle','💓 Heartbeat','🌊 Ocean waves','🌌 Aurora','🚨 Police','🔁 Chase 3',
+'📶 Music VU','🥁 Music beat','🎛️ Music spectrum'];
 const PALS=['Effect default','Rainbow','Christmas','Candy cane','Halloween','USA','Fire','Ocean','Forest','Lava','Party','Pastel','Sunset','Ice','Warm white','Valentine','St. Patrick','Easter','Autumn','My colors'];let C=null,T=0,BASE='';
 const $=i=>document.getElementById(i);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2500)}

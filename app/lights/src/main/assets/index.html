@@ -1,7 +1,7 @@
 <!doctype html>
 <!--openpix-ui-->
 <html lang="en"><head>
-<meta name="ui-version" content="10">
+<meta name="ui-version" content="11">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lights</title>
 <style>
@@ -110,7 +110,7 @@ async function useIp(ip){if(!ip)return;try{const s=await req('GET','http://'+ip+
 function forget(){Native.setPref('ip','');IP='';showSetup()}
 // --- main ---
 function tiles(){$('fx').innerHTML=FX.map((f,i)=>`<div class="tile${C&&C.fx==i+1&&!(S&&S.test)?' sel':''}" onclick="pick(${i+1})"><i>${f[0]}</i>${f[1]}</div>`).join('')}
-const MORE=['Breathe','Wipe','Theater chase','Running lights','Sparkle','Glitter','🔥 Fire','☄️ Meteor','Comet','Scanner','Color flow','Gradient','❄️ Snowfall','🎇 Fireworks','Ripple','🕯️ Candle','⚡ Lightning','Bouncing balls','Dissolve','Strobe','Stripes','Fade','Twinkle colors','Sinelon','Juggle','💓 Heartbeat','🌊 Ocean waves','Aurora','🚨 Police','Chase 3','🎵 Music VU','🎵 Music beat','🎵 Music spectrum'];
+const MORE=['🌬️ Breathe','🧹 Wipe','🎭 Theater chase','🏃 Running lights','💫 Sparkle','🌟 Glitter','🔥 Fire','☄️ Meteor','🌠 Comet','🔦 Scanner','🌀 Color flow','🌅 Gradient','❄️ Snowfall','🎇 Fireworks','💧 Ripple','🕯️ Candle','⚡ Lightning','⚽ Bouncing balls','🌫️ Dissolve','📸 Strobe','🦓 Stripes','🌗 Fade','⭐ Twinkle colors','〰️ Sinelon','🤹 Juggle','💓 Heartbeat','🌊 Ocean waves','🌌 Aurora','🚨 Police','🔁 Chase 3','📶 Music VU','🥁 Music beat','🎛️ Music spectrum'];
 const PALS=['Effect default','Rainbow','Christmas','Candy cane','Halloween','USA','Fire','Ocean','Forest','Lava','Party','Pastel','Sunset','Ice','Warm white','Valentine','St. Patrick','Easter','Autumn','My colors'];
 async function sleepT(m){try{await post('/api/sleep',{min:m});toast(m?'Lights off in '+m+' min':'Sleep timer off');refresh()}catch(e){toast('Failed: '+e.message)}}
 async function applyPreset(i){try{C=await post('/api/preset',{act:'apply',i});toast('Preset applied ✓');tiles();refresh()}catch(e){toast('Failed: '+e.message)}}

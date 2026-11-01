@@ -1,7 +1,7 @@
 {
- "version": "0.8.0",
- "file": "openpix-0.8.0.bin",
+ "version": "0.8.1",
+ "file": "openpix-0.8.1.bin",
  "size": 141312,
- "crc32": 4251042977,
- "notes": "Alexa (local, no skill), sync with other WLED/OpenPix, music effects from network audio sync, MQTT, setup help for Home Assistant / Google Home / GE Cync."
+ "crc32": 1927705424,
+ "notes": "Every effect now has an icon."
 }

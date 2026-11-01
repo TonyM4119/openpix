@@ -9,7 +9,8 @@
 uint8_t flat[FLAT_SIZE];
 
 typedef struct { uint16_t bc, e, d; } slice_t;   // bc: PB0-7 (low) + PC8-15 (high)
-static slice_t slices[MAX_PIX * 24] __attribute__((section(".xram")));
+#define SLICE_MAX (MAX_PIX * 32 + 32 + 400)   // room for APA102 (32 bits/pixel + start/end frames)
+static slice_t slices[SLICE_MAX] __attribute__((section(".xram")));
 
 static uint32_t exp_mask[(MAX_UNIV + 31) / 32];   // universes used by the config
 static uint32_t got_mask[(MAX_UNIV + 31) / 32];
@@ -107,6 +108,32 @@ static void line_bit(int line, uint16_t *mb, uint16_t *me, uint16_t *md, int *fi
   else                { *field = 2; *bit = 1u << (line - 32); }   // PD0-15
 }
 
+// WS2801 / APA102: data on every line, shared clock on PB15
+static void send_clocked(uint32_t nbits, uint32_t mb, uint32_t mc, uint32_t me, uint32_t md) {
+  uint32_t half = g_sysclk / (2u * cfg.spi_khz * 1000u);
+  if (half < 8) half = 8;
+  __disable_irq();
+  uint32_t t0 = cyc(), t = t0;
+  for (uint32_t i = 0; i < nbits; i++) {
+    const slice_t s = slices[i];
+    GPIOB->BSRR = (s.bc & mb) | (((~s.bc) & mb) << 16);
+    GPIOC->BSRR = (s.bc & mc) | (((~s.bc) & mc) << 16);
+    GPIOE->BSRR = (s.e & me) | (((~s.e) & me) << 16);
+    GPIOD->BSRR = (s.d & md) | (((~s.d) & md) << 16);
+    while ((uint32_t)(cyc() - t) < half) {}
+    t += half;
+    GPIOB->BSRR = 1u << 15;                     // clock high: pixels latch the bit
+    while ((uint32_t)(cyc() - t) < half) {}
+    t += half;
+    GPIOB->BSRR = (1u << 15) << 16;
+  }
+  GPIOB->BSRR = (mb << 16); GPIOC->BSRR = (mc << 16); GPIOE->BSRR = (me << 16); GPIOD->BSRR = (md << 16);
+  uint32_t ms = (cyc() - t0) / (g_sysclk / 1000u);
+  g_frame_ms = ms;
+  if (ms > 1) g_ms += ms - 1;
+  __enable_irq();
+}
+
 static void build_and_send(void) {
   uint32_t maxlen = 0;
   uint16_t mbc = 0, me = 0, md = 0;
@@ -116,7 +143,11 @@ static void build_and_send(void) {
     if (n > maxlen) maxlen = n;
   }
   if (!maxlen) return;
-  uint32_t nbits = maxlen * 24;
+  const int apa = cfg.pix_type == PIX_APA102;
+  const uint32_t bpp = apa ? 32 : 24, pre = apa ? 32 : 0;
+  const uint32_t post = apa ? ((maxlen + 15) / 16 + 1) * 8 : 0;   // APA102 end frame (ones)
+  uint32_t nbits = pre + maxlen * bpp + post;
+  if (nbits > SLICE_MAX) nbits = SLICE_MAX;
   memset(slices, 0, nbits * sizeof(slice_t));
 
   // Pass 1: estimate current draw for the power limiter
@@ -169,7 +200,10 @@ static void build_and_send(void) {
         case ORD_BRG: c[0] = b; c[1] = r; c[2] = g; break;
         default:      c[0] = b; c[1] = g; c[2] = r; break;
       }
-      slice_t *s = &slices[p * 24];
+      slice_t *s = &slices[pre + p * bpp];
+      if (apa) {   // APA102 pixel header: 111 + global brightness 31
+        for (int bi = 0; bi < 8; bi++, s++) { if (field == 0) s->bc |= bit; else if (field == 1) s->e |= bit; else s->d |= bit; }
+      }
       for (int ch = 0; ch < 3; ch++) {
         uint8_t v = c[ch];
         for (int bi = 0; bi < 8; bi++, s++) {
@@ -182,8 +216,19 @@ static void build_and_send(void) {
     }
   }
 
+  if (apa) {
+    // headers for null pixels and pixels past each string's end, then the end frame
+    for (uint32_t p = 0; p < maxlen; p++)
+      for (int bi = 0; bi < 8; bi++) {
+        slice_t *s = &slices[pre + p * bpp + bi];
+        s->bc = mbc; s->e = me; s->d = md;
+      }
+    for (uint32_t i = pre + maxlen * bpp; i < nbits; i++) { slices[i].bc = mbc; slices[i].e = me; slices[i].d = md; }
+  }
+
   const uint32_t mb = mbc & 0x00FF, mc = mbc & 0xFF00;
   const uint32_t f = g_sysclk / 1000000u;     // cycles per us
+  if (cfg.pix_type != PIX_WS281X) { send_clocked(nbits, mb, mc, me, md); frames++; fps_count++; return; }
   // WS2811 (fast) / WS2812: 0 = ~0.32 us high, 1 = ~0.70 us high, 1.25 us period
   const uint32_t T0H = f * 30 / 100, T1H = f * 70 / 100, TP = f * 125 / 100;
 

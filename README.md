@@ -19,6 +19,16 @@ controller, which often doesn't come back on the network without a power cycle. 
 - firmware updates are staged and verified **before** anything is overwritten, and you can
   upload the stock HolidayCoro `.bin` to go back
 
+## Features
+
+- sACN (E1.31), Art-Net and DDP input; Art-Net discovery (ArtPollReply) so xLights can find it
+- WLED-compatible JSON API (`/json/state`, `/json/info`): works with Home Assistant's WLED integration and WLED apps
+- Built-in effects, playlists, different effect per output, "My colors"
+- Schedule: on at sunset (+/- minutes) or a set time, off at a set time, days of the week; clock via NTP
+- Power limiter (estimated amps), expansion-board voltage/temperature, fan control, over-temperature shutdown
+- WS2811/WS2812/SK6812, WS2801 and APA102/SK9822 pixels; 2 x DMX512 outputs
+- Settings save instantly with no reboot; updates from GitHub with one button
+
 ## Built-in holiday effects
 
 Christmas, Candy cane, Classic multicolor, Halloween, 4th of July, Warm twinkle, Rainbow.

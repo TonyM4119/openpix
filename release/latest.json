@@ -1,7 +1,7 @@
 {
- "version": "0.5.1",
- "file": "openpix-0.5.1.bin",
- "size": 112640,
- "crc32": 2942444488,
- "notes": "Pick your state instead of latitude/longitude; sunset shown correctly; \u00b0F/\u00b0C setting (default \u00b0F); xLights can discover the controller (Art-Net); Home Assistant / WLED app support; master on/off."
+ "version": "0.6.0",
+ "file": "openpix-0.6.0.bin",
+ "size": 113664,
+ "crc32": 3902571987,
+ "notes": "DMX outputs (2 x RS-485, one universe each) and WS2801 / APA102 clock-type pixels."
 }

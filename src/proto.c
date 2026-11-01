@@ -2,6 +2,7 @@
 #include "board.h"
 #include "proto.h"
 #include "pixels.h"
+#include "dmx.h"
 #include "lwip/udp.h"
 #include "lwip/igmp.h"
 #include "lwip/netif.h"
@@ -14,6 +15,8 @@ static uint8_t pkt[1500];
 
 static void put_universe(uint16_t u, const uint8_t *data, uint16_t len) {
   if (u < 1 || u > MAX_UNIV) return;
+  for (int i = 0; i < 2; i++)   // DMX outputs get the full 512 channels
+    if (cfg.dmx_on[i] && cfg.dmx_univ[i] == u) memcpy(&dmx_buf[i][1], data, len > 512 ? 512 : len);
   uint32_t base = (uint32_t)(u - 1) * cfg.univ_size;
   if (len > cfg.univ_size) len = cfg.univ_size;
   if (base + len > FLAT_SIZE) return;

@@ -8,6 +8,7 @@
 #include "proto.h"
 #include "sensors.h"
 #include "schedule.h"
+#include "dmx.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -87,6 +88,7 @@ int main(void) {
 
   pixels_init();
   sensors_init();
+  dmx_init();
   net_init();
   http_init();
   sched_init();
@@ -98,6 +100,7 @@ int main(void) {
     if (!http_upload_active && !http_install_pending()) pixels_task();
     net_task();
     sensors_task();
+    dmx_task();
     sched_task();
     ui_task();
   }

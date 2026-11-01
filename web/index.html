@@ -109,6 +109,17 @@ progress{width:100%;height:14px}
 <div class="row"><button class="pri" onclick="save()">Save</button><span class="mut">Saves instantly. No reboot.</span></div>
 </div>
 
+<div class="card"><h2>Pixel type &amp; DMX</h2><div class="grid2">
+<div><label>Pixel type</label><select id="ptype"><option value="0">WS2811 / WS2812 / SK6812 (3-wire, most common)</option><option value="1">WS2801 (uses CLK wire)</option><option value="2">APA102 / SK9822 (uses CLK wire)</option></select></div>
+<div id="w_skhz"><label>Clock speed (kHz)</label><input id="skhz" type="number"></div>
+<div><label>DMX output 1</label><select id="dmx1"><option value="0">Off</option><option value="1">On</option></select></div>
+<div><label>DMX 1 universe</label><input id="du1" type="number"></div>
+<div><label>DMX output 2</label><select id="dmx2"><option value="0">Off</option><option value="1">On</option></select></div>
+<div><label>DMX 2 universe</label><input id="du2" type="number"></div>
+</div>
+<p class="mut">DMX outputs are the 3-pin RS-485 terminals marked DMX OUTPUT. Each sends one full universe (512 channels) received over sACN/Art-Net. Clock-type pixels use the CLK terminal on each output.</p>
+<div class="row"><button class="pri" onclick="saveOut()">Save</button></div></div>
+
 <div class="card"><h2>Network &amp; general</h2><div class="grid2">
 <div><label>Name</label><input id="name"></div>
 <div><label>Address</label><select id="dhcp"><option value="0">Static</option><option value="1">DHCP</option></select></div>
@@ -172,7 +183,7 @@ $('tz').value=c.tz;$('dst').value=c.dst;
 {let best=0,bd=1e9;STATES.forEach((x,i)=>{const d=(x[1]-c.lat/1e4)**2+(x[2]-c.lon/1e4)**2;if(d<bd){bd=d;best=i}});
 $('st').innerHTML=STATES.map((x,i)=>`<option value="${i}"${i==best?' selected':''}>${x[0]}</option>`).join('')}
 $('days').innerHTML=DAYS.map((d,i)=>`<label style="display:inline-flex;gap:4px;margin-right:8px;color:var(--txt)"><input type="checkbox" class="dy" ${c.sdays>>i&1?'checked':''}>${d}</label>`).join('');schUi();
-['pla','mapc'].forEach(k=>$(k).value=c[k]);$('fan').value=tOut(c.fan);$('sdc').value=c.sdc?tOut(c.sdc):0;document.querySelectorAll('.tu').forEach(x=>x.textContent=UC()?'°C':'°F')}
+['pla','mapc','ptype','skhz'].forEach(k=>$(k).value=c[k]);$('dmx1').value=c.dmx[0][0];$('du1').value=c.dmx[0][1];$('dmx2').value=c.dmx[1][0];$('du2').value=c.dmx[1][1];$('w_skhz').style.display=c.ptype==0?'none':'';$('fan').value=tOut(c.fan);$('sdc').value=c.sdc?tOut(c.sdc):0;document.querySelectorAll('.tu').forEach(x=>x.textContent=UC()?'°C':'°F')}
 let CUST=[],PL=[];
 function custUi(){const n=+$('cn').value;$('custc').innerHTML=CUST.slice(0,n).map((h,i)=>`<input type="color" value="#${h}" style="width:64px;height:44px;padding:2px" oninput="CUST[${i}]=this.value.slice(1)">`).join('')}
 function plUi(){$('pl').innerHTML=PL.map((e,i)=>`<div class="row" style="margin-bottom:6px"><select style="flex:2" onchange="PL[${i}][0]=+this.value">${FX.slice(1).map((n,j)=>`<option value="${j+1}"${j+1==e[0]?' selected':''}>${n}</option>`).join('')}</select>
@@ -184,6 +195,7 @@ function saveCust(){const o={cm:$('cm').value,cn:$('cn').value};CUST.forEach((h,
 function savePl(){const o={plon:$('plon').checked?1:0,pln:PL.length};PL.forEach((e,i)=>{o['pf'+(i+1)]=e[0];o['pm'+(i+1)]=e[1]});post(o,'Playlist saved ✓')}
 function saveSch(){let d=0;document.querySelectorAll('.dy').forEach((x,i)=>{if(x.checked)d|=1<<i});
 post({sch:$('sch').checked?1:0,osun:$('osun').value,onoff:$('onoff').value||0,onm:mh($('onm').value),offm:mh($('offm').value),tz:$('tz').value,dst:$('dst').value,lat:STATES[$('st').value][1],lon:STATES[$('st').value][2],sdays:d},'Schedule saved ✓')}
+function saveOut(){post({ptype:$('ptype').value,skhz:$('skhz').value,dmx1:$('dmx1').value,du1:$('du1').value,dmx2:$('dmx2').value,du2:$('du2').value},'Saved ✓').then(()=>fillExtra(C))}
 function saveSafe(){const sd=+$('sdc').value;post({pla:$('pla').value,mapc:$('mapc').value,fan:tIn(+$('fan').value),sdc:sd?tIn(sd):0},'Safety settings saved ✓')}
 const UC=()=>C&&C.unit==1,tOut=c=>UC()?c:Math.round(c*9/5+32),tIn=v=>UC()?v:Math.round((v-32)*5/9),tTxt=c=>tOut(c)+(UC()?' °C':' °F');
 async function syncTime(){try{await api('/api/time','utc='+Math.floor(Date.now()/1000));toast('Clock set ✓');status()}catch(e){toast(e.message)}}
@@ -191,7 +203,7 @@ function fxbtns(){$('fxb').innerHTML=FX.map((n,i)=>`<button class="${C.fx==i?'pr
 $('fxs').value=C.fxs;$('fxsv').textContent=C.fxs;$('fxbr').value=C.fxb;$('fxbv').textContent=C.fxb}
 async function fxset(i){const p=new URLSearchParams({fx:i===undefined?C.fx:i,fxs:$('fxs').value,fxb:$('fxbr').value});
 try{const c=await api('/api/config',p.toString());C.fx=c.fx;C.fxs=c.fxs;C.fxb=c.fxb;fxbtns();toast(i===undefined?'Saved ✓':FX[C.fx]+' ✓');status()}catch(e){toast('Failed: '+e.message)}}
-function load(){return api('/api/config').then(c=>{C=c;fxbtns();fillExtra(c);$('cn').onchange=custUi;$('osun').onchange=schUi;['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;$('unit').value=c.unit||0;
+function load(){return api('/api/config').then(c=>{C=c;fxbtns();fillExtra(c);$('cn').onchange=custUi;$('ptype').onchange=()=>$('w_skhz').style.display=$('ptype').value=='0'?'none':'';$('osun').onchange=schUi;['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;$('unit').value=c.unit||0;
 $('qo').innerHTML=ORD.map((o,i)=>`<option value="${i}"${i==2?' selected':''}>${o}</option>`).join('');rows()})}
 async function save(){grab();const p=new URLSearchParams();['name','ip','mask','gw','usz','dhcp','hold','unit'].forEach(k=>p.set(k,$(k).value));
 C.out.forEach((o,i)=>{const n=i+1;'ucpnzbrom'.split('').forEach((k,j)=>p.set(k+n,j==8?o[8]+1:o[j]));p.set('f'+n,o[9])});

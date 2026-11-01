@@ -31,7 +31,7 @@ void config_defaults(config_t *c) {
   c->version = CFG_VERSION;
   strcpy(c->name, "AlphaPix OpenPix");
   c->dhcp = 0;
-  uint8_t ip[4] = {10, 0, 0, 50}, mask[4] = {255, 255, 255, 0}, gw[4] = {10, 0, 0, 1};
+  uint8_t ip[4] = {10, 0, 0, 80}, mask[4] = {255, 255, 255, 0}, gw[4] = {10, 0, 0, 1};
   memcpy(c->ip, ip, 4); memcpy(c->mask, mask, 4); memcpy(c->gw, gw, 4);
   c->univ_size = 510;
   c->hold_last = 1;

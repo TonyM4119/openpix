@@ -23,7 +23,7 @@ controller, which often doesn't come back on the network without a power cycle. 
 
 1. Open the stock web page, go to Firmware Update, and upload `openpix.bin`.
 2. Power-cycle the controller if it doesn't come back by itself (stock reboot bug).
-3. Browse to the IP on the OLED screen (default **10.0.0.50**).
+3. Browse to the IP on the OLED screen (default **10.0.0.80**).
 
 Hold the two buttons used for the stock "load defaults" (PA4 + PA11) at power-up to reset
 OpenPix settings to defaults.
@@ -32,7 +32,7 @@ To go back to stock: Firmware card → upload the HolidayCoro `.bin`.
 
 ## Defaults
 
-- Static IP 10.0.0.50 / 255.255.255.0, gateway 10.0.0.1
+- Static IP 10.0.0.80 / 255.255.255.0, gateway 10.0.0.1
 - Outputs 1–16: 340 pixels, GRB, universes 1, 3, 5 … 31 (510 channels per universe)
 
 ## Build

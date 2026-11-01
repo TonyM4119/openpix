@@ -70,7 +70,7 @@ int main(void) {
     config_save();
     oled_clear();
     oled_text(2, "DEFAULTS LOADED");
-    oled_text(3, "IP 10.0.0.50");
+    oled_text(3, "IP 10.0.0.80");
     oled_flush();
     delay_ms(2000);
   }

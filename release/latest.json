@@ -1,7 +1,7 @@
 {
- "version": "0.3.3",
- "file": "openpix-0.3.3.bin",
+ "version": "0.3.4",
+ "file": "openpix-0.3.4.bin",
  "size": 70656,
- "crc32": 1672253440,
- "notes": "Color order column no longer cut off on the outputs table."
+ "crc32": 2074220504,
+ "notes": "Clearer wording for the Identify test."
 }

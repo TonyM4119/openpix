@@ -1,7 +1,7 @@
 <!doctype html>
 <!--openpix-ui-->
 <html lang="en"><head>
-<meta name="ui-version" content="2">
+<meta name="ui-version" content="3">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lights</title>
 <style>
@@ -28,7 +28,7 @@ input[type=range]{width:100%;accent-color:var(--acc);height:32px}
 input[type=text]{width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit}
 label{display:flex;justify-content:space-between;color:var(--mut);font-size:14px;margin-top:6px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.info{display:grid;grid-template-columns:1fr 1fr;gap:8px}.info div{background:#11161b;border-radius:10px;padding:8px 12px}.info small{display:block;color:var(--mut);font-size:12px}.info span{font-weight:600}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:8px}.info div{background:#11161b;border-radius:10px;padding:8px 12px}.info small{display:block;color:var(--mut);font-size:12px}.info span{font-weight:600}.info div:last-child:nth-child(odd){grid-column:1/-1}
 .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.btns .wide{grid-column:1/-1}
 .tests{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .list button{width:100%;text-align:left;margin-top:8px}
@@ -59,7 +59,7 @@ progress{width:100%;height:14px;margin-top:8px}
 <div class="card"><h2>Test lights</h2><div class="tests">
 <button onclick="test(1,255,0,0)">Red</button><button onclick="test(1,0,255,0)">Green</button><button onclick="test(1,0,0,255)">Blue</button>
 <button onclick="test(1,255,255,255)">White</button><button onclick="test(4)">Identify</button><button onclick="test(0)">Stop test</button></div>
-<p class="mut">Identify: output N lights its first N pixels white.</p></div>
+<p class="mut"><b>Identify</b> lights each string with as many white pixels as its output number (output 3 shows 3 white pixels), so you can tell which string is plugged in where.</p></div>
 
 <div class="card"><h2>Controller</h2><div class="info" id="info"></div>
 <div class="btns"><button class="pri wide" onclick="checkUpd(1)">Check for firmware updates</button></div>

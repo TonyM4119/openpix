@@ -32,8 +32,15 @@ tr.warn input.u{border-color:var(--bad)}
 #toast.on{opacity:1}.mut{color:var(--mut);font-size:13px}
 progress{width:100%;height:14px}
 .tabs button.sel{border-color:var(--acc);color:var(--acc)}
+
+body.light{--bg:#f3f5f8;--card:#ffffff;--line:#dde2e8;--txt:#1b2129;--mut:#5f6b78;--acc:#1677d2}
+body.light .st{background:#f0f3f7}body.light button{background:#eef1f5;border-color:#cfd6de;color:var(--txt)}
+body.light button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+body.light input,body.light select{background:#fff;color:var(--txt);border-color:#cfd6de}
+body.light #toast{background:#fff;color:var(--txt)}
+#theme{margin-left:8px;padding:6px 10px;font-size:16px;line-height:1}
 </style></head><body>
-<header><div class="dot" id="dot"></div><b>OpenPix</b><span id="nm"></span></header>
+<header><div class="dot" id="dot"></div><b>OpenPix</b><span id="nm"></span><button id="theme" onclick="toggleTheme()" title="Light / dark">☀️</button></header>
 <main>
 <div class="card"><h2>Status</h2><div class="stats" id="stats"></div></div>
 
@@ -234,5 +241,8 @@ try{const b=new Uint8Array(await (await fetch(REL+j.file+'?t='+Date.now(),{cache
 if(j.size&&b.length!=j.size)throw new Error('size mismatch');if(j.crc32&&crc32(b)!=(j.crc32>>>0))throw new Error('checksum mismatch');
 sendFw(new Blob([b]))}catch(e){$('fwmsg').textContent='Download failed: '+e.message+'. Nothing was changed.'}}
 async function reboot(){if(!confirm('Reboot the controller?'))return;await api('/api/reboot','x=1');toast('Rebooting…');setTimeout(status,5000)}
+function applyTheme(){let t='dark';try{t=localStorage.getItem('theme')||'dark'}catch(e){}document.body.classList.toggle('light',t=='light');$('theme').textContent=t=='light'?'🌙':'☀️'}
+function toggleTheme(){let t='dark';try{t=localStorage.getItem('theme')=='light'?'dark':'light';localStorage.setItem('theme',t)}catch(e){}applyTheme()}
+applyTheme();
 load().then(status).then(()=>checkUpd(0));setInterval(status,2000);
 </script></body></html>

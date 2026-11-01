@@ -1,7 +1,7 @@
 {
- "version": "0.6.1",
- "file": "openpix-0.6.1.bin",
+ "version": "0.6.2",
+ "file": "openpix-0.6.2.bin",
  "size": 113664,
- "crc32": 2689644452,
- "notes": "Clock and sunset shown in 12-hour time."
+ "crc32": 1493180921,
+ "notes": "Light mode (sun/moon button, top right). Dark stays the default."
 }

@@ -1,7 +1,7 @@
 <!doctype html>
 <!--openpix-ui-->
 <html lang="en"><head>
-<meta name="ui-version" content="3">
+<meta name="ui-version" content="4">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lights</title>
 <style>
@@ -71,7 +71,7 @@ progress{width:100%;height:14px;margin-top:8px}
 </main><div id="toast"></div>
 <script>
 const $=i=>document.getElementById(i);
-const FX=[['🎄','Christmas'],['🍬','Candy cane'],['💡','Multicolor'],['🎃','Halloween'],['🎆','4th of July'],['✨','Warm twinkle'],['🌈','Rainbow']];
+const FX=[['🎄','Christmas'],['🍬','Candy cane'],['💡','Multicolor'],['🎃','Halloween'],['🎆','4th of July'],['✨','Warm twinkle'],['🌈','Rainbow'],['🎨','My colors']];
 const REL='https://raw.githubusercontent.com/TonyM4119/openpix/main/release/';
 let IP='',S=null,C=null,cbs={},seq=0,UPD=null;
 // --- native bridge (falls back to fetch when previewed in a browser) ---
@@ -100,10 +100,14 @@ async function refresh(){try{S=await get('/api/status');$('dot').className='ok';
  const live=S.age>=0&&S.age<2000;let now,sub='';
  if(S.test){now=S.test==1?'Test / off':'Test pattern';sub='Tap Lights on or Stop test to go back'}
  else if(live){now='Live show';sub='Receiving from xLights/FPP ('+S.fps+' fps)'}
- else if(S.fxon){now=FX[S.fx-1][0]+' '+FX[S.fx-1][1];sub='Built-in effect'}
+ else if(S.hot){now='⚠ Too hot — outputs off';sub='Board temperature is over the safety limit'}
+ else if(S.fxon){const f=FX[(S.fxnow||S.fx)-1]||FX[0];now=S.schedon===0?'Off by schedule':f[0]+' '+f[1];sub=S.schedon===0?'Comes back on at the scheduled time':'Built-in effect'}
  else{now='Off';sub='Waiting for show data'}
  $('now').textContent=now;$('nowsub').textContent=sub;
- $('info').innerHTML=[['Firmware',S.fw.replace('OpenPix ','')],['IP address',S.ip],['Running for',fmt(S.up)],['Device ID',S.id],['App',appInfo().replace('App ','')]].map(x=>`<div><small>${x[0]}</small><span>${x[1]}</span></div>`).join('');
+ $('info').innerHTML=[['Firmware',S.fw.replace('OpenPix ','')],['IP address',S.ip],['Running for',fmt(S.up)],['Device ID',S.id],
+ ...(S.power_ma!==undefined?[['Power (est.)',(S.power_ma/1000).toFixed(1)+' A'+(S.limited?' · limited':'')],
+   ['Board temp',S.exp&&S.exp[0].ok?S.exp[0].t+' °C · '+(S.exp[0].v/10).toFixed(1)+' V':'—'],
+   ['Fan',S.hot?'⚠ OVER TEMP':S.fan?'On':'Off'],['Clock',S.time?S.clock+' · sunset '+S.sunset:'not set']]:[]),['App',appInfo().replace('App ','')]].map(x=>`<div><small>${x[0]}</small><span>${x[1]}</span></div>`).join('');
  if(C)tiles()}catch(e){$('dot').className='';$('now').textContent='Controller not reachable';$('nowsub').textContent=IP+' · check power and Wi-Fi'}}
 function fmt(t){const d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);return d?d+'d '+h+'h':h?h+'h '+m+'m':m+'m'}
 async function pick(i){try{await post('/api/test',{mode:0});C=await post('/api/config',{fx:i,fxs:$('sp').value,fxb:$('br').value});Native.setPref('lastfx',String(i));tiles();toast(FX[i-1][1]+' ✓');refresh()}catch(e){toast('Failed: '+e.message)}}

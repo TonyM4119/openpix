@@ -4,6 +4,7 @@
 #include "pixels.h"
 #include <string.h>
 #include "effects.h"
+#include "sensors.h"
 
 uint8_t flat[FLAT_SIZE];
 
@@ -19,7 +20,7 @@ uint32_t g_frame_ms;
 
 // Built-in effect plays when selected and no show data arrived for 3 s.
 int pixels_fx_active(void) {
-  if (!cfg.fx || cfg.test_mode) return 0;
+  if ((!cfg.fx && !(cfg.pl_on && cfg.pl_count)) || cfg.test_mode) return 0;
   return !last_rx_ms || (uint32_t)(millis() - last_rx_ms) > 3000;
 }
 
@@ -70,9 +71,12 @@ static void hsv(uint32_t h, uint8_t *r, uint8_t *g, uint8_t *b) {
   else { h -= 512; *r = h; *g = 0; *b = 255 - h; }
 }
 
+static uint32_t frame_now;          // one timestamp per frame so both passes agree
+uint32_t g_power_ma, g_power_scale = 256;   // estimated draw and limiter scale (256 = none)
+
 static void get_rgb(int out, uint32_t k, uint8_t *r, uint8_t *g, uint8_t *b) {
   out_cfg_t *o = &cfg.out[out];
-  uint32_t now = millis();
+  uint32_t now = frame_now;
   switch (cfg.test_mode) {
     case 1: *r = cfg.test_r; *g = cfg.test_g; *b = cfg.test_b; return;
     case 2: hsv(k * 8 + now / 4, r, g, b); return;
@@ -84,7 +88,9 @@ static void get_rgb(int out, uint32_t k, uint8_t *r, uint8_t *g, uint8_t *b) {
     default: break;
   }
   if (pixels_fx_active()) {
-    fx_color(cfg.fx, out, k, now, cfg.fx_speed, r, g, b);
+    int fx = o->zone_fx == ZONE_FOLLOW ? fx_current() : o->zone_fx;
+    if (fx == ZONE_DARK || !fx || !fx_scheduled_on()) { *r = *g = *b = 0; return; }
+    fx_color(fx, out, k, now, cfg.fx_speed, r, g, b);
     if (cfg.fx_bright < 100) { *r = *r * cfg.fx_bright / 100; *g = *g * cfg.fx_bright / 100; *b = *b * cfg.fx_bright / 100; }
     return;
   }
@@ -113,14 +119,36 @@ static void build_and_send(void) {
   uint32_t nbits = maxlen * 24;
   memset(slices, 0, nbits * sizeof(slice_t));
 
+  // Pass 1: estimate current draw for the power limiter
+  frame_now = millis();
+  uint32_t sum = 0;
+  int dark = g_overtemp;
+  if (!dark && cfg.power_limit_a) {
+    for (int i = 0; i < NUM_OUT; i++) {
+      out_cfg_t *o = &cfg.out[i];
+      for (uint32_t k = 0; k < o->pixels && k < MAX_PIX; k++) {
+        uint8_t r, g, b;
+        get_rgb(i, k, &r, &g, &b);
+        sum += (uint32_t)(r + g + b) * o->bright;
+      }
+    }
+  }
+  // sum/(255*100) = full-on LED colours; x mA each
+  g_power_ma = (uint32_t)((uint64_t)sum * cfg.ma_per_ch / (255u * 100u));
+  uint32_t limit = (uint32_t)cfg.power_limit_a * 1000u;
+  g_power_scale = (cfg.power_limit_a && g_power_ma > limit) ? (uint32_t)((uint64_t)limit * 256 / g_power_ma) : 256;
+
+  // Pass 2: build the bit slices
   for (int i = 0; i < NUM_OUT; i++) {
     out_cfg_t *o = &cfg.out[i];
     if (!o->pixels) continue;
     int field; uint16_t bit;
     line_bit(cfg.out_map[i], 0, 0, 0, &field, &bit);
     if (field == 0) mbc |= bit; else if (field == 1) me |= bit; else md |= bit;
+    if (dark) continue;   // over temperature: send all-black frames
     uint32_t total = o->pixels + o->nulls;
     if (total > MAX_PIX) total = MAX_PIX;
+    uint32_t sc = (uint32_t)o->bright * g_power_scale;   // /25600
     for (uint32_t p = o->nulls; p < total; p++) {
       uint32_t k = p - o->nulls;
       if (o->reverse) k = o->pixels - 1 - k;
@@ -131,7 +159,7 @@ static void build_and_send(void) {
       }
       uint8_t r, g, b;
       get_rgb(i, k, &r, &g, &b);
-      if (o->bright < 100) { r = r * o->bright / 100; g = g * o->bright / 100; b = b * o->bright / 100; }
+      if (sc < 25600) { r = r * sc / 25600; g = g * sc / 25600; b = b * sc / 25600; }
       uint8_t c[3];
       switch (o->order) {
         case ORD_RGB: c[0] = r; c[1] = g; c[2] = b; break;

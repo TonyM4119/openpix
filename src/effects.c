@@ -94,6 +94,28 @@ void fx_color(int fx, int out, uint32_t k, uint32_t now, uint8_t speed, uint8_t 
       else { h -= 512; c.r = h; c.g = 0; c.b = 255 - h; }
       break;
     }
+    case FX_CUSTOM: {
+      // the user's own colours
+      int n = cfg.cust_n ? cfg.cust_n : 1;
+      #define CC(i) ((rgb_t){cfg.cust_rgb[(i) % n][0], cfg.cust_rgb[(i) % n][1], cfg.cust_rgb[(i) % n][2]})
+      switch (cfg.cust_mode) {
+        case CUST_SOLID: c = CC(out); break;                       // one colour per string
+        case CUST_ALTERNATE: c = CC(k / 3); break;                 // blocks of 3
+        case CUST_CHASE: c = CC((k + t / 150) / 4); break;         // moving bands
+        case CUST_TWINKLE: {
+          c = scale(CC(k), 70);
+          uint32_t tw = twinkle(k + out * 313, t, 1200, 6);
+          if (tw) c = mix(c, CC(k), tw);
+          break; }
+        default: {                                                 // slow fade through the colours
+          uint32_t ph = t / 8;
+          uint32_t i = (ph / 256) % n;
+          c = mix(CC(i), CC(i + 1), ph & 255);
+          break; }
+      }
+      #undef CC
+      break;
+    }
     default: break;
   }
   (void)BLUE;

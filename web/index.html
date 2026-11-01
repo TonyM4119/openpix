@@ -45,6 +45,46 @@ progress{width:100%;height:14px}
 <div><label>Brightness <span id="fxbv"></span>%</label><input id="fxbr" type="range" min="5" max="100" step="5" oninput="$('fxbv').textContent=this.value" onchange="fxset()"></div>
 </div></div>
 
+<div class="card"><h2>My colors</h2>
+<p class="mut">Pick up to 4 colors, then choose 🎨 My colors above (or put it in the playlist).</p>
+<div class="row" id="custc"></div>
+<div class="grid2" style="margin-top:10px">
+<div><label>How many colors</label><select id="cn"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+<div><label>Style</label><select id="cm"><option value="0">One color per string</option><option value="1">Alternating blocks</option><option value="2">Moving bands</option><option value="3">Twinkle</option><option value="4">Slow fade</option></select></div>
+</div><div class="row" style="margin-top:10px"><button class="pri" onclick="saveCust()">Save colors</button></div></div>
+
+<div class="card"><h2>Playlist</h2>
+<p class="mut">Rotate through effects automatically. While on, it replaces the single effect choice.</p>
+<div class="row"><label style="display:flex;gap:8px;align-items:center;color:var(--txt)"><input type="checkbox" id="plon"> Playlist on</label></div>
+<div id="pl" style="margin-top:8px"></div>
+<div class="row" style="margin-top:8px"><button onclick="plAdd()">+ Add effect</button><button class="pri" onclick="savePl()">Save playlist</button></div></div>
+
+<div class="card"><h2>Schedule</h2>
+<p class="mut">Turns the effects on and off by themselves. Live shows from xLights are not affected.</p>
+<div class="row"><label style="display:flex;gap:8px;align-items:center;color:var(--txt)"><input type="checkbox" id="sch"> Use schedule</label><span class="mut" id="clk"></span></div>
+<div class="grid2" style="margin-top:8px">
+<div><label>Turn on</label><select id="osun"><option value="1">At sunset</option><option value="0">At a set time</option></select></div>
+<div id="w_onoff"><label>Minutes after sunset (negative = before)</label><input id="onoff" type="number"></div>
+<div id="w_onm"><label>On time</label><input id="onm" type="time"></div>
+<div><label>Turn off</label><input id="offm" type="time"></div>
+<div><label>Time zone</label><select id="tz"><option value="-300">Eastern</option><option value="-360">Central</option><option value="-420">Mountain</option><option value="-480">Pacific</option><option value="-540">Alaska</option><option value="-600">Hawaii</option><option value="0">UTC</option></select></div>
+<div><label>Daylight saving (US)</label><select id="dst"><option value="1">Yes</option><option value="0">No</option></select></div>
+<div><label>Latitude</label><input id="lat" inputmode="decimal"></div>
+<div><label>Longitude</label><input id="lon" inputmode="decimal"></div>
+</div>
+<p class="mut">Days: <span id="days"></span></p>
+<p class="mut">Latitude/longitude are only used to work out sunset. Look up your town on a map (right-click → coordinates) — two decimals is plenty.</p>
+<div class="row"><button class="pri" onclick="saveSch()">Save schedule</button><button onclick="syncTime()">Set clock from this device</button></div></div>
+
+<div class="card"><h2>Safety</h2><div class="grid2">
+<div><label>Power limit (amps, 0 = off)</label><input id="pla" type="number"></div>
+<div><label>mA per LED color at full</label><input id="mapc" type="number"></div>
+<div><label>Fan on at (°C)</label><input id="fan" type="number"></div>
+<div><label>Outputs off at (°C, 0 = never)</label><input id="sdc" type="number"></div>
+</div>
+<p class="mut">The power limit dims everything evenly when the estimated draw goes over it. Your 5 V supply is rated 60 A; 50 A leaves headroom. Most 5 V pixels draw about 20 mA per color.</p>
+<div class="row"><button class="pri" onclick="saveSafe()">Save safety settings</button></div></div>
+
 <div class="card"><h2>Test lights</h2>
 <div class="row">
 <button onclick="test(0)">Off (show data)</button>
@@ -64,7 +104,7 @@ progress{width:100%;height:14px}
 <div class="row tabs" style="margin-bottom:8px">
 <button class="sel" onclick="tab(0,this)">Port 1 (1-16)</button><button onclick="tab(1,this)">Port 2 (17-32)</button><button onclick="tab(2,this)">Port 3 (33-48)</button>
 </div>
-<div class="tw"><table><thead><tr><th></th><th>Universe</th><th>Start ch</th><th>Pixels</th><th>Null</th><th>Zig-zag</th><th>Bright %</th><th>Reverse</th><th>Order</th><th>Line</th></tr></thead>
+<div class="tw"><table><thead><tr><th></th><th>Universe</th><th>Start ch</th><th>Pixels</th><th>Null</th><th>Zig-zag</th><th>Bright %</th><th>Reverse</th><th>Order</th><th>Line</th><th>Effect</th></tr></thead>
 <tbody id="outs"></tbody></table></div>
 <p class="mut" id="uinfo"></p>
 <div class="row"><button class="pri" onclick="save()">Save</button><span class="mut">Saves instantly. No reboot.</span></div>
@@ -93,7 +133,7 @@ progress{width:100%;height:14px}
 </main><div id="toast"></div>
 <script>
 const ORD=['RGB','RBG','GRB','GBR','BRG','BGR'];
-const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🎆 4th of July','✨ Warm twinkle','🌈 Rainbow'];let C=null,T=0,BASE='';
+const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🎆 4th of July','✨ Warm twinkle','🌈 Rainbow','🎨 My colors'];let C=null,T=0,BASE='';
 const $=i=>document.getElementById(i);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2500)}
 async function api(p,b){const o=b===undefined?{}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b};
@@ -101,28 +141,56 @@ const r=await fetch(BASE+p,o);if(!r.ok)throw new Error(await r.text());return r.
 function st(k,v){return `<div class="st"><small>${k}</small><span>${v}</span></div>`}
 async function status(){try{const s=await api('/api/status');const live=s.age>=0&&s.age<2000;
 $('dot').className='dot'+(live?' live':'');$('nm').textContent=s.name+' · '+s.fw;FWV=s.fw.split(' ')[1]||'0';
-$('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?FX[s.fx]:s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)}catch(e){$('dot').className='dot'}}
+$('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?FX[s.fx]:s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)
++st('Power (est.)',(s.power_ma/1000).toFixed(1)+' A'+(s.limited?' (limited)':''))
++(s.exp&&s.exp[0].ok?st('Port 1 board',(s.exp[0].v/10).toFixed(1)+' V · '+s.exp[0].t+' °C'):st('Port 1 board','no reading'))
++st('Fan',s.hot?'⚠ OVER TEMP':s.fan?'On':'Off')+st('Clock',s.time?s.clock+' (sunset '+s.sunset+')':'not set');
+$('clk').textContent=s.time?('Controller time '+s.clock+', sunset '+s.sunset+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
 function fmt(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60);return h?h+'h '+m+'m':m+'m '+t%60+'s'}
 function sel(v){return '<select>'+ORD.map((o,i)=>`<option value="${i}"${i==v?' selected':''}>${o}</option>`).join('')+'</select>'}
 function rows(){let h='';for(let i=T*16;i<T*16+16;i++){const o=C.out[i];
-h+=`<tr data-i="${i}"><td>Out ${i+1}</td><td><input class="u" type="number" value="${o[0]}"></td><td><input type="number" value="${o[1]}"></td><td><input type="number" value="${o[2]}"></td><td><input type="number" value="${o[3]}"></td><td><input type="number" value="${o[4]}"></td><td><input type="number" value="${o[5]}"></td><td><input type="checkbox"${o[6]?' checked':''}></td><td>${sel(o[7])}</td><td><input type="number" value="${o[8]+1}"></td></tr>`}
+h+=`<tr data-i="${i}"><td>Out ${i+1}</td><td><input class="u" type="number" value="${o[0]}"></td><td><input type="number" value="${o[1]}"></td><td><input type="number" value="${o[2]}"></td><td><input type="number" value="${o[3]}"></td><td><input type="number" value="${o[4]}"></td><td><input type="number" value="${o[5]}"></td><td><input type="checkbox"${o[6]?' checked':''}></td><td>${sel(o[7])}</td><td><input type="number" value="${o[8]+1}"></td><td>${zsel(o[9])}</td></tr>`}
 $('outs').innerHTML=h;$('outs').oninput=()=>{grab();check()};check()}
 function grab(){document.querySelectorAll('#outs tr').forEach(r=>{const i=+r.dataset.i,f=r.querySelectorAll('input,select');const o=C.out[i];
-o[0]=+f[0].value;o[1]=+f[1].value;o[2]=+f[2].value;o[3]=+f[3].value;o[4]=+f[4].value;o[5]=+f[5].value;o[6]=f[6].checked?1:0;o[7]=+f[7].value;o[8]=(+f[8].value||i+1)-1})}
+o[0]=+f[0].value;o[1]=+f[1].value;o[2]=+f[2].value;o[3]=+f[3].value;o[4]=+f[4].value;o[5]=+f[5].value;o[6]=f[6].checked?1:0;o[7]=+f[7].value;o[8]=(+f[8].value||i+1)-1;o[9]=+f[9].value})}
 function rng(o){const s=(o[0]-1)*C.usz+(o[1]-1);return [s,s+o[2]*3-1]}
 function check(){const us=C.out.map(rng);let bad=0;document.querySelectorAll('#outs tr').forEach(r=>{const i=+r.dataset.i,o=C.out[i];let w=false;
 if(o[2])for(let j=0;j<48;j++){if(j==i||!C.out[j][2])continue;if(us[i][0]<=us[j][1]&&us[j][0]<=us[i][1])w=true}r.classList.toggle('warn',w);if(w)bad++});
 $('uinfo').textContent=bad?'⚠ Red universes overlap another output (they would show the same data).':'Each 170 pixels uses one universe ('+C.usz+' channels).'}
 function tab(t,b){grab();T=t;document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');rows()}
 function quick(){grab();const p=+$('qp').value,o=+$('qo').value;let u=1;for(let i=0;i<48;i++){const x=C.out[i];if(i<16||x[2]){x[2]=i<16?p:x[2];x[7]=o;x[1]=1;x[0]=u;u+=Math.max(1,Math.ceil(x[2]*3/C.usz))}}rows();toast('Filled in. Press Save.')}
+function zsel(v){const o=[[0,'Follow']].concat(FX.slice(1).map((n,i)=>[i+1,n])).concat([[255,'Dark']]);
+return '<select class="z">'+o.map(x=>`<option value="${x[0]}"${x[0]==v?' selected':''}>${x[1]}</option>`).join('')+'</select>'}
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const hm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'),mh=t=>{const a=t.split(':');return (+a[0])*60+(+a[1]||0)};
+function fillExtra(c){
+$('cn').value=c.cust.length||2;$('cm').value=c.cm;CUST=c.cust.slice();while(CUST.length<4)CUST.push(['ff0000','0000ff','ffffff','00ff00'][CUST.length]);custUi();
+$('plon').checked=!!c.plon;PL=c.pl.slice();plUi();
+$('sch').checked=!!c.sch;$('osun').value=c.osun;$('onoff').value=c.onoff;$('onm').value=hm(c.onm);$('offm').value=hm(c.offm);
+$('tz').value=c.tz;$('dst').value=c.dst;$('lat').value=(c.lat/1e4).toFixed(4);$('lon').value=(c.lon/1e4).toFixed(4);
+$('days').innerHTML=DAYS.map((d,i)=>`<label style="display:inline-flex;gap:4px;margin-right:8px;color:var(--txt)"><input type="checkbox" class="dy" ${c.sdays>>i&1?'checked':''}>${d}</label>`).join('');schUi();
+['pla','mapc','fan','sdc'].forEach(k=>$(k).value=c[k])}
+let CUST=[],PL=[];
+function custUi(){const n=+$('cn').value;$('custc').innerHTML=CUST.slice(0,n).map((h,i)=>`<input type="color" value="#${h}" style="width:64px;height:44px;padding:2px" oninput="CUST[${i}]=this.value.slice(1)">`).join('')}
+function plUi(){$('pl').innerHTML=PL.map((e,i)=>`<div class="row" style="margin-bottom:6px"><select style="flex:2" onchange="PL[${i}][0]=+this.value">${FX.slice(1).map((n,j)=>`<option value="${j+1}"${j+1==e[0]?' selected':''}>${n}</option>`).join('')}</select>
+<input type="number" min="1" max="240" value="${e[1]}" style="flex:1" onchange="PL[${i}][1]=+this.value"><span class="mut">min</span><button onclick="PL.splice(${i},1);plUi()">✕</button></div>`).join('')||'<p class="mut">No effects yet.</p>'}
+function plAdd(){if(PL.length>=8){toast('Up to 8 effects');return}PL.push([1,10]);plUi()}
+function schUi(){const s=$('osun').value=='1';$('w_onoff').style.display=s?'':'none';$('w_onm').style.display=s?'none':''}
+async function post(o,msg){try{const c=await api('/api/config',new URLSearchParams(o).toString());Object.assign(C,c);toast(msg||'Saved ✓');status()}catch(e){toast('Save failed: '+e.message)}}
+function saveCust(){const o={cm:$('cm').value,cn:$('cn').value};CUST.forEach((h,i)=>o['c'+(i+1)]=h);post(o,'Colors saved ✓')}
+function savePl(){const o={plon:$('plon').checked?1:0,pln:PL.length};PL.forEach((e,i)=>{o['pf'+(i+1)]=e[0];o['pm'+(i+1)]=e[1]});post(o,'Playlist saved ✓')}
+function saveSch(){let d=0;document.querySelectorAll('.dy').forEach((x,i)=>{if(x.checked)d|=1<<i});
+post({sch:$('sch').checked?1:0,osun:$('osun').value,onoff:$('onoff').value||0,onm:mh($('onm').value),offm:mh($('offm').value),tz:$('tz').value,dst:$('dst').value,lat:$('lat').value,lon:$('lon').value,sdays:d},'Schedule saved ✓')}
+function saveSafe(){post({pla:$('pla').value,mapc:$('mapc').value,fan:$('fan').value,sdc:$('sdc').value},'Safety settings saved ✓')}
+async function syncTime(){try{await api('/api/time','utc='+Math.floor(Date.now()/1000));toast('Clock set ✓');status()}catch(e){toast(e.message)}}
 function fxbtns(){$('fxb').innerHTML=FX.map((n,i)=>`<button class="${C.fx==i?'pri':''}" onclick="fxset(${i})">${n}</button>`).join('');
 $('fxs').value=C.fxs;$('fxsv').textContent=C.fxs;$('fxbr').value=C.fxb;$('fxbv').textContent=C.fxb}
 async function fxset(i){const p=new URLSearchParams({fx:i===undefined?C.fx:i,fxs:$('fxs').value,fxb:$('fxbr').value});
 try{const c=await api('/api/config',p.toString());C.fx=c.fx;C.fxs=c.fxs;C.fxb=c.fxb;fxbtns();toast(i===undefined?'Saved ✓':FX[C.fx]+' ✓');status()}catch(e){toast('Failed: '+e.message)}}
-function load(){return api('/api/config').then(c=>{C=c;fxbtns();['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;
+function load(){return api('/api/config').then(c=>{C=c;fxbtns();fillExtra(c);$('cn').onchange=custUi;$('osun').onchange=schUi;['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;
 $('qo').innerHTML=ORD.map((o,i)=>`<option value="${i}"${i==2?' selected':''}>${o}</option>`).join('');rows()})}
 async function save(){grab();const p=new URLSearchParams();['name','ip','mask','gw','usz','dhcp','hold'].forEach(k=>p.set(k,$(k).value));
-C.out.forEach((o,i)=>{const n=i+1;'ucpnzbrom'.split('').forEach((k,j)=>p.set(k+n,j==8?o[8]+1:o[j]))});
+C.out.forEach((o,i)=>{const n=i+1;'ucpnzbrom'.split('').forEach((k,j)=>p.set(k+n,j==8?o[8]+1:o[j]));p.set('f'+n,o[9])});
 const oldip=C.ip,newip=$('ip').value,dh=$('dhcp').value;
 try{C=await api('/api/config',p.toString());toast('Saved ✓');rows();if(dh=='0'&&newip!=oldip){toast('Moving to '+newip+'…');setTimeout(()=>location.href='http://'+newip+'/',2500)}}catch(e){toast('Save failed: '+e.message)}}
 async function test(m,r,g,b){const p=new URLSearchParams({mode:m});if(r!==undefined){p.set('r',r);p.set('g',g);p.set('b',b)}try{await api('/api/test',p.toString());toast(m?'Test on':'Test off');status()}catch(e){toast(e.message)}}

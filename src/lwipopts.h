@@ -16,7 +16,12 @@
 #define LWIP_DHCP_DOES_ACD_CHECK    0
 #define LWIP_ACD                    0
 #define LWIP_AUTOIP                 0
-#define LWIP_DNS                    0
+#define LWIP_DNS                    1
+#define SNTP_SERVER_DNS             1
+#define SNTP_MAX_SERVERS            2
+#define SNTP_UPDATE_DELAY           (3600 * 1000)
+void sched_set_time(unsigned long utc);
+#define SNTP_SET_SYSTEM_TIME(sec)   sched_set_time((unsigned long)(sec))
 #define LWIP_RAW                    0
 #define LWIP_NETIF_HOSTNAME         1
 #define LWIP_NETIF_STATUS_CALLBACK  0
@@ -30,7 +35,7 @@
 #define MEMP_NUM_TCP_PCB            8
 #define MEMP_NUM_TCP_PCB_LISTEN     2
 #define MEMP_NUM_TCP_SEG            32
-#define MEMP_NUM_SYS_TIMEOUT        12
+#define MEMP_NUM_SYS_TIMEOUT        16
 #define PBUF_POOL_SIZE              16
 #define PBUF_POOL_BUFSIZE           1536
 #define TCP_MSS                     1460

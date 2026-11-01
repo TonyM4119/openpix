@@ -6,6 +6,8 @@
 #include "net.h"
 #include "http.h"
 #include "proto.h"
+#include "sensors.h"
+#include "schedule.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -45,7 +47,11 @@ static void ui_task(void) {
     else if (now - last < 2000) snprintf(l, sizeof l, "LIVE  %lu fps", (unsigned long)pixels_fps());
     else snprintf(l, sizeof l, "No data %lus", (unsigned long)((now - last) / 1000));
     oled_text(4, l);
-    snprintf(l, sizeof l, "sACN %lu", (unsigned long)proto_pkts_sacn); oled_text(5, l);
+    if (g_overtemp) snprintf(l, sizeof l, "OVER TEMP - OUTPUTS OFF");
+    else if (g_sensors[0].ok) snprintf(l, sizeof l, "%d.%dV %dC%s", g_sensors[0].volt10 / 10, g_sensors[0].volt10 % 10,
+                                       g_sensors[0].temp_c, g_fan_on ? " FAN" : "");
+    else snprintf(l, sizeof l, "sACN %lu", (unsigned long)proto_pkts_sacn);
+    oled_text(5, l);
     snprintf(l, sizeof l, "ArtNet %lu DDP %lu", (unsigned long)proto_pkts_art, (unsigned long)proto_pkts_ddp); oled_text(6, l);
   } else {
     uint8_t m[6]; device_mac(m);
@@ -79,8 +85,10 @@ int main(void) {
   }
 
   pixels_init();
+  sensors_init();
   net_init();
   http_init();
+  sched_init();
 
   for (;;) {
     wdt_kick();
@@ -88,6 +96,8 @@ int main(void) {
     http_task();
     if (!http_upload_active && !http_install_pending()) pixels_task();
     net_task();
+    sensors_task();
+    sched_task();
     ui_task();
   }
 }

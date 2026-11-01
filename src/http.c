@@ -15,6 +15,8 @@
 #include "eth.h"
 #include "net.h"
 #include "web_index.h"
+#include "sensors.h"
+#include "schedule.h"
 #include "lwip/tcp.h"
 #include <string.h>
 #include <strings.h>
@@ -111,7 +113,18 @@ static int build_status(char *buf, int max) {
      (unsigned long)eth_rx_count, (unsigned long)eth_tx_count, (unsigned long)eth_err_count,
      g_hse_ok, cfg.test_mode);
   w--;  // reopen object
-  AP(",\"fx\":%u,\"fxon\":%d}", cfg.fx, pixels_fx_active());
+  AP(",\"fx\":%u,\"fxnow\":%d,\"fxon\":%d,\"schedon\":%d", cfg.fx, fx_current(), pixels_fx_active(), fx_scheduled_on());
+  AP(",\"power_ma\":%lu,\"limited\":%d,\"fan\":%d,\"hot\":%d,\"exp\":[", (unsigned long)g_power_ma,
+     g_power_scale < 256, g_fan_on, g_overtemp);
+  for (int p = 0; p < 3; p++)
+    AP("%s{\"ok\":%u,\"v\":%u,\"t\":%d}", p ? "," : "", g_sensors[p].ok, g_sensors[p].volt10, g_sensors[p].temp_c);
+  AP("],\"time\":%d", sched_time_valid());
+  if (sched_time_valid()) {
+    int32_t loc = sched_local();
+    AP(",\"clock\":\"%02ld:%02ld\",\"sunset\":\"%02d:%02d\"", (long)((loc % 86400) / 3600), (long)((loc % 3600) / 60),
+       sched_sunset_min() / 60, sched_sunset_min() % 60);
+  }
+  AP("}");
   return w - buf;
 }
 
@@ -123,12 +136,22 @@ static int build_config(char *buf, int max) {
      cfg.dhcp, cfg.ip[0], cfg.ip[1], cfg.ip[2], cfg.ip[3], cfg.mask[0], cfg.mask[1], cfg.mask[2],
      cfg.mask[3], cfg.gw[0], cfg.gw[1], cfg.gw[2], cfg.gw[3]);
   AP(",\"fx\":%u,\"fxs\":%u,\"fxb\":%u", cfg.fx, cfg.fx_speed, cfg.fx_bright);
+  AP(",\"pla\":%u,\"mapc\":%u,\"fan\":%u,\"sdc\":%u", cfg.power_limit_a, cfg.ma_per_ch, cfg.fan_on_c, cfg.shutdown_c);
+  AP(",\"tz\":%d,\"dst\":%u,\"sch\":%u,\"lat\":%ld,\"lon\":%ld,\"osun\":%u,\"sdays\":%u,\"onoff\":%d,\"onm\":%u,\"offm\":%u",
+     cfg.tz_min, cfg.dst_us, cfg.sched_on, (long)cfg.lat_e4, (long)cfg.lon_e4, cfg.on_sunset, cfg.sched_days,
+     cfg.on_offset, cfg.on_min, cfg.off_min);
+  AP(",\"plon\":%u,\"pl\":[", cfg.pl_on);
+  for (int i = 0; i < cfg.pl_count; i++) AP("%s[%u,%u]", i ? "," : "", cfg.pl_fx[i], cfg.pl_minutes[i]);
+  AP("],\"cm\":%u,\"cust\":[", cfg.cust_mode);
+  for (int i = 0; i < cfg.cust_n; i++) AP("%s\"%02x%02x%02x\"", i ? "," : "", cfg.cust_rgb[i][0], cfg.cust_rgb[i][1], cfg.cust_rgb[i][2]);
+  AP("],\"ptype\":%u,\"skhz\":%u,\"dmx\":[[%u,%u],[%u,%u]]", cfg.pix_type, cfg.spi_khz,
+     cfg.dmx_on[0], cfg.dmx_univ[0], cfg.dmx_on[1], cfg.dmx_univ[1]);
   AP(",\"usz\":%u,\"hold\":%u,\"test\":%u,\"tr\":%u,\"tg\":%u,\"tb\":%u,\"out\":[",
      cfg.univ_size, cfg.hold_last, cfg.test_mode, cfg.test_r, cfg.test_g, cfg.test_b);
   for (int i = 0; i < NUM_OUT; i++) {
     out_cfg_t *o = &cfg.out[i];
-    AP("%s[%u,%u,%u,%u,%u,%u,%u,%u,%u]", i ? "," : "", o->universe, o->channel, o->pixels, o->nulls,
-       o->zigzag, o->bright, o->reverse, o->order, cfg.out_map[i]);
+    AP("%s[%u,%u,%u,%u,%u,%u,%u,%u,%u,%u]", i ? "," : "", o->universe, o->channel, o->pixels, o->nulls,
+       o->zigzag, o->bright, o->reverse, o->order, cfg.out_map[i], o->zone_fx);
   }
   AP("]}");
   return w - buf;
@@ -150,6 +173,45 @@ static int apply_config_form(char *body) {
     else if (!strcmp(k, "fx"))   { if (n >= 0 && n < FX_COUNT) cfg.fx = n; }
     else if (!strcmp(k, "fxs"))  { if (n >= 1 && n <= 10) cfg.fx_speed = n; }
     else if (!strcmp(k, "fxb"))  { if (n >= 1 && n <= 100) cfg.fx_bright = n; }
+    else if (!strcmp(k, "pla"))  { if (n >= 0 && n <= 250) cfg.power_limit_a = n; }
+    else if (!strcmp(k, "mapc")) { if (n >= 1 && n <= 60) cfg.ma_per_ch = n; }
+    else if (!strcmp(k, "fan"))  { if (n >= 20 && n <= 80) cfg.fan_on_c = n; }
+    else if (!strcmp(k, "sdc"))  { if (n == 0 || (n >= 30 && n <= 90)) cfg.shutdown_c = n; }
+    else if (!strcmp(k, "tz"))   { if (n >= -720 && n <= 840) cfg.tz_min = n; }
+    else if (!strcmp(k, "dst"))  { cfg.dst_us = n ? 1 : 0; }
+    else if (!strcmp(k, "sch"))  { cfg.sched_on = n ? 1 : 0; }
+    else if (!strcmp(k, "lat"))  { double f = strtod(v, 0); if (f >= -90 && f <= 90) cfg.lat_e4 = (int32_t)(f * 10000 + (f < 0 ? -0.5 : 0.5)); }
+    else if (!strcmp(k, "lon"))  { double f = strtod(v, 0); if (f >= -180 && f <= 180) cfg.lon_e4 = (int32_t)(f * 10000 + (f < 0 ? -0.5 : 0.5)); }
+    else if (!strcmp(k, "osun")) { cfg.on_sunset = n ? 1 : 0; }
+    else if (!strcmp(k, "sdays")){ cfg.sched_days = n & 0x7F; }
+    else if (!strcmp(k, "onoff")){ if (n >= -240 && n <= 240) cfg.on_offset = n; }
+    else if (!strcmp(k, "onm"))  { if (n >= 0 && n < 1440) cfg.on_min = n; }
+    else if (!strcmp(k, "offm")) { if (n >= 0 && n < 1440) cfg.off_min = n; }
+    else if (!strcmp(k, "plon")) { cfg.pl_on = n ? 1 : 0; }
+    else if (!strcmp(k, "pln"))  { if (n >= 0 && n <= MAX_PLAYLIST) cfg.pl_count = n; }
+    else if (k[0] == 'p' && (k[1] == 'f' || k[1] == 'm') && k[2] >= '1' && k[2] <= '8' && !k[3]) {
+      int i = k[2] - '1';
+      if (k[1] == 'f') { if (n >= 1 && n < FX_COUNT) cfg.pl_fx[i] = n; }
+      else if (n >= 1 && n <= 240) cfg.pl_minutes[i] = n;
+    }
+    else if (!strcmp(k, "cm"))   { if (n >= 0 && n < CUST_COUNT) cfg.cust_mode = n; }
+    else if (!strcmp(k, "cn"))   { if (n >= 1 && n <= 4) cfg.cust_n = n; }
+    else if (k[0] == 'c' && k[1] >= '1' && k[1] <= '4' && !k[2]) {
+      const char *h = v[0] == '#' ? v + 1 : v;
+      unsigned long x = strtoul(h, 0, 16);
+      int i = k[1] - '1';
+      cfg.cust_rgb[i][0] = x >> 16; cfg.cust_rgb[i][1] = x >> 8; cfg.cust_rgb[i][2] = x;
+    }
+    else if (!strcmp(k, "ptype")) { if (n >= 0 && n < PIX_COUNT) cfg.pix_type = n; }
+    else if (!strcmp(k, "skhz")) { if (n >= 50 && n <= 2000) cfg.spi_khz = n; }
+    else if (!strcmp(k, "dmx1")) { cfg.dmx_on[0] = n ? 1 : 0; }
+    else if (!strcmp(k, "dmx2")) { cfg.dmx_on[1] = n ? 1 : 0; }
+    else if (!strcmp(k, "du1"))  { if (n >= 1 && n <= MAX_UNIV) cfg.dmx_univ[0] = n; }
+    else if (!strcmp(k, "du2"))  { if (n >= 1 && n <= MAX_UNIV) cfg.dmx_univ[1] = n; }
+    else if (k[0] == 'f' && k[1] >= '0' && k[1] <= '9') {
+      int i = atoi(k + 1) - 1;
+      if (i >= 0 && i < NUM_OUT && (n == ZONE_DARK || (n >= 0 && n < FX_COUNT))) cfg.out[i].zone_fx = n;
+    }
     else if (k[0] && strchr("ucpnzbrom", k[0]) && k[1] >= '0' && k[1] <= '9') {
       int i = atoi(k + 1) - 1;
       if (i < 0 || i >= NUM_OUT) continue;
@@ -283,6 +345,10 @@ static void handle_request(conn_t *c) {
       else respond_text(c, "500 Error", "Could not save settings to flash");
     } else if (!strcmp(c->path, "/api/test")) {
       apply_test_form(c->body);
+      respond_json(c, build_status(c->out, sizeof(c->out)));
+    } else if (!strcmp(c->path, "/api/time")) {
+      char *p = c->body, *k, *v;
+      while (next_kv(&p, &k, &v)) if (!strcmp(k, "utc")) { unsigned long u = strtoul(v, 0, 10); if (u > 1700000000UL) sched_set_time(u); }
       respond_json(c, build_status(c->out, sizeof(c->out)));
     } else if (!strcmp(c->path, "/api/reboot")) {
       respond_text(c, "200 OK", "Rebooting");

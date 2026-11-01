@@ -1,7 +1,7 @@
 {
- "version": "0.3.4",
- "file": "openpix-0.3.4.bin",
- "size": 70656,
- "crc32": 2074220504,
- "notes": "Clearer wording for the Identify test."
+ "version": "0.4.0",
+ "file": "openpix-0.4.0.bin",
+ "size": 107520,
+ "crc32": 3731253332,
+ "notes": "Safety: power limiter, board temperature/voltage, fan control, over-temperature shutdown. Standalone: sunset/clock schedule, playlists, different effect per string, My colors effect."
 }

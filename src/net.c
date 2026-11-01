@@ -10,6 +10,7 @@
 #include "lwip/timeouts.h"
 #include "lwip/dhcp.h"
 #include "lwip/igmp.h"
+#include "lwip/dns.h"
 #include "lwip/ip4_addr.h"
 #include "netif/ethernet.h"
 #include <stdio.h>
@@ -44,6 +45,11 @@ static void set_addrs(void) {
   } else {
     dhcp_stop(&g_netif);
     netif_set_addr(&g_netif, &ip, &mask, &gw);
+    ip_addr_t d1, d2;
+    ip_addr_copy_from_ip4(d1, gw);
+    IP_ADDR4(&d2, 1, 1, 1, 1);
+    dns_setserver(0, &d1);
+    dns_setserver(1, &d2);
   }
   groups_dirty = 1;
 }

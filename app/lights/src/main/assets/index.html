@@ -1,7 +1,7 @@
 <!doctype html>
 <!--openpix-ui-->
 <html lang="en"><head>
-<meta name="ui-version" content="6">
+<meta name="ui-version" content="7">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lights</title>
 <style>
@@ -84,6 +84,7 @@ function __prog(id,msg,p){$('upd').textContent=msg;$('pg').classList.remove('hid
 function req(m,path,body,t){return new Promise((ok,no)=>{const id='r'+(++seq);cbs[id]=(st,txt)=>{if(st>=200&&st<300){try{ok(JSON.parse(txt))}catch(e){ok(txt)}}else no(new Error(st?('HTTP '+st+' '+txt):txt||'no response'))};
  Native.http(id,m,path.startsWith('http')?path:'http://'+IP+path,body||'',t||4000)})}
 const get=p=>req('GET',p),post=(p,o)=>req('POST',p,new URLSearchParams(o).toString());
+const t12=t=>{if(!t)return '';const a=t.split(':');let h=+a[0];const ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+a[1]+' '+ap};
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2200)}
 // --- setup ---
 function showSetup(){$('setup').classList.remove('hide');$('mainui').classList.add('hide');$('who').textContent='not connected';$('dot').className=''}
@@ -108,7 +109,7 @@ async function refresh(){try{S=await get('/api/status');$('dot').className='ok';
  $('info').innerHTML=[['Firmware',S.fw.replace('OpenPix ','')],['IP address',S.ip],['Running for',fmt(S.up)],['Device ID',S.id],
  ...(S.power_ma!==undefined?[['Power (est.)',(S.power_ma/1000).toFixed(1)+' A'+(S.limited?' · limited':'')],
    ['Board temp',S.exp&&S.exp[0].ok?(S.unit==1?S.exp[0].t+' °C':Math.round(S.exp[0].t*9/5+32)+' °F')+' · '+(S.exp[0].v/10).toFixed(1)+' V':'—'],
-   ['Fan',S.hot?'⚠ OVER TEMP':S.fan?'On':'Off'],['Clock',S.time?S.clock+' · sunset '+S.sunset:'not set']]:[]),['App',appInfo().replace('App ','')]].map(x=>`<div><small>${x[0]}</small><span>${x[1]}</span></div>`).join('');
+   ['Fan',S.hot?'⚠ OVER TEMP':S.fan?'On':'Off'],['Clock',S.time?t12(S.clock)+' · sunset '+t12(S.sunset):'not set']]:[]),['App',appInfo().replace('App ','')]].map(x=>`<div><small>${x[0]}</small><span>${x[1]}</span></div>`).join('');
  if(C)tiles()}catch(e){$('dot').className='';$('now').textContent='Controller not reachable';$('nowsub').textContent=IP+' · check power and Wi-Fi'}}
 function fmt(t){const d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);return d?d+'d '+h+'h':h?h+'h '+m+'m':m+'m'}
 async function pick(i){try{await post('/api/test',{mode:0});C=await post('/api/config',{pwr:1,fx:i,fxs:$('sp').value,fxb:$('br').value});Native.setPref('lastfx',String(i));tiles();toast(FX[i-1][1]+' ✓');refresh()}catch(e){toast('Failed: '+e.message)}}

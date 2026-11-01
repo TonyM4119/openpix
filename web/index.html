@@ -149,14 +149,15 @@ const $=i=>document.getElementById(i);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2500)}
 async function api(p,b){const o=b===undefined?{}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b};
 const r=await fetch(BASE+p,o);if(!r.ok)throw new Error(await r.text());return r.headers.get('content-type').includes('json')?r.json():r.text()}
+const t12=t=>{if(!t)return '';const a=t.split(':');let h=+a[0];const ap=h>=12?'PM':'AM';h=h%12||12;return h+':'+a[1]+' '+ap};
 function st(k,v){return `<div class="st"><small>${k}</small><span>${v}</span></div>`}
 async function status(){try{const s=await api('/api/status');const live=s.age>=0&&s.age<2000;
 $('dot').className='dot'+(live?' live':'');$('nm').textContent=s.name+' · '+s.fw;FWV=s.fw.split(' ')[1]||'0';
 $('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?FX[s.fx]:s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)
 +st('Power (est.)',(s.power_ma/1000).toFixed(1)+' A'+(s.limited?' (limited)':''))
 +(s.exp&&s.exp[0].ok?st('Port 1 board',(s.exp[0].v/10).toFixed(1)+' V · '+tTxt(s.exp[0].t)):st('Port 1 board','no reading'))
-+st('Fan',s.hot?'⚠ OVER TEMP':s.fan?'On':'Off')+st('Clock',s.time?s.clock+' (sunset '+s.sunset+')':'not set');
-$('clk').textContent=s.time?('Controller time '+s.clock+', sunset '+s.sunset+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
++st('Fan',s.hot?'⚠ OVER TEMP':s.fan?'On':'Off')+st('Clock',s.time?t12(s.clock)+' (sunset '+t12(s.sunset)+')':'not set');
+$('clk').textContent=s.time?('Controller time '+t12(s.clock)+', sunset '+t12(s.sunset)+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
 function fmt(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60);return h?h+'h '+m+'m':m+'m '+t%60+'s'}
 function sel(v){return '<select>'+ORD.map((o,i)=>`<option value="${i}"${i==v?' selected':''}>${o}</option>`).join('')+'</select>'}
 function rows(){let h='';for(let i=T*16;i<T*16+16;i++){const o=C.out[i];

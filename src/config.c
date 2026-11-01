@@ -33,7 +33,7 @@ static void config_v2_defaults(config_t *c) {
   c->shutdown_c = 60;         // stock default 140F / 60C
   c->tz_min = -300;           // US Eastern
   c->dst_us = 1;
-  c->lat_e4 = 403000; c->lon_e4 = -760000;   // placeholder (Pennsylvania-ish); set your own
+  c->lat_e4 = 409000; c->lon_e4 = -778000;   // middle of Pennsylvania; pick your state in the UI
   c->on_sunset = 1; c->on_offset = 0; c->on_min = 17 * 60; c->off_min = 23 * 60;
   c->sched_days = 0x7F;
   c->pl_count = 3;
@@ -45,6 +45,8 @@ static void config_v2_defaults(config_t *c) {
   c->pix_type = PIX_WS281X;
   c->dmx_univ[0] = 1; c->dmx_univ[1] = 2;
   c->spi_khz = 500;
+  c->power_off = 0;
+  c->solid_rgb[0] = 255; c->solid_rgb[1] = 160; c->solid_rgb[2] = 80;
 }
 
 void config_defaults(config_t *c) {
@@ -115,6 +117,7 @@ void config_load(void) {
   if (cfg.pl_count > MAX_PLAYLIST) cfg.pl_count = MAX_PLAYLIST;
   if (!cfg.cust_n || cfg.cust_n > 4) cfg.cust_n = 2;
   if (cfg.cust_mode >= CUST_COUNT) cfg.cust_mode = CUST_ALTERNATE;
+  if (cfg.power_off > 1) cfg.power_off = 0;
   if (cfg.pix_type >= PIX_COUNT) cfg.pix_type = PIX_WS281X;
   if (cfg.spi_khz < 50 || cfg.spi_khz > 2000) cfg.spi_khz = 500;
   if (cfg.on_min > 1439) cfg.on_min = 17 * 60;

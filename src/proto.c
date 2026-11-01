@@ -6,6 +6,7 @@
 #include "lwip/igmp.h"
 #include "lwip/netif.h"
 #include <string.h>
+#include <stdio.h>
 
 static struct udp_pcb *pcb_sacn, *pcb_art, *pcb_ddp;
 uint32_t proto_pkts_sacn, proto_pkts_art, proto_pkts_ddp;
@@ -40,13 +41,45 @@ static void rx_sacn(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_add
   put_universe(u, &pkt[126], cnt);
 }
 
+// ArtPollReply so xLights / Art-Net tools can discover the controller
+static void art_poll_reply(void) {
+  extern struct netif g_netif;
+  static uint8_t r[239];
+  memset(r, 0, sizeof(r));
+  memcpy(r, "Art-Net", 8);
+  r[8] = 0x00; r[9] = 0x21;                       // OpPollReply
+  const ip4_addr_t *ip = netif_ip4_addr(&g_netif);
+  memcpy(&r[10], &ip->addr, 4);
+  r[14] = 0x36; r[15] = 0x19;                     // port 6454 (LE)
+  r[16] = 0; r[17] = 1;                           // firmware version
+  r[23] = 0xD0;                                   // Status1: indicators normal, network-configured
+  snprintf((char *)&r[26], 18, "OpenPix");
+  snprintf((char *)&r[44], 64, "%s (OpenPix " FW_VERSION ")", cfg.name);
+  snprintf((char *)&r[108], 64, "#0001 [%04lu] OK", (unsigned long)(proto_pkts_art % 10000));
+  r[173] = 4;                                     // NumPorts lo
+  for (int i = 0; i < 4; i++) { r[174 + i] = 0x80; r[182 + i] = 0x80; r[190 + i] = i; }   // DMX output ports
+  r[200] = 0;                                     // StNode
+  uint8_t mac[6]; device_mac(mac);
+  memcpy(&r[201], mac, 6);
+  memcpy(&r[207], &ip->addr, 4);
+  r[212] = 0x08;                                  // Status2: supports 15-bit port-address
+  struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, sizeof(r), PBUF_RAM);
+  if (!p) return;
+  memcpy(p->payload, r, sizeof(r));
+  ip_addr_t bc;
+  ip_addr_set_ip4_u32(&bc, ip->addr | ~netif_ip4_netmask(&g_netif)->addr);
+  udp_sendto(pcb_art, p, &bc, 6454);
+  pbuf_free(p);
+}
+
 static void rx_art(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *a, u16_t port) {
   (void)arg; (void)pcb; (void)a; (void)port;
   uint16_t n = pbuf_copy_partial(p, pkt, sizeof(pkt), 0);
   pbuf_free(p);
   if (n < 18 || memcmp(pkt, "Art-Net", 8) != 0) return;
   uint16_t op = pkt[8] | ((uint16_t)pkt[9] << 8);
-  if (op != 0x5000) return;                                             // ArtDmx only
+  if (op == 0x2000) { art_poll_reply(); return; }                       // ArtPoll: say hello (xLights discovery)
+  if (op != 0x5000) return;                                             // ArtDmx
   uint16_t u = pkt[14] | ((uint16_t)(pkt[15] & 0x7F) << 8);
   uint16_t len = ((uint16_t)pkt[16] << 8) | pkt[17];
   if (18 + len > n) len = n - 18;

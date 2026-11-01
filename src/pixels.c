@@ -122,7 +122,7 @@ static void build_and_send(void) {
   // Pass 1: estimate current draw for the power limiter
   frame_now = millis();
   uint32_t sum = 0;
-  int dark = g_overtemp;
+  int dark = g_overtemp || (cfg.power_off && !cfg.test_mode);
   if (!dark && cfg.power_limit_a) {
     for (int i = 0; i < NUM_OUT; i++) {
       out_cfg_t *o = &cfg.out[i];

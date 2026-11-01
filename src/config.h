@@ -7,7 +7,7 @@
 
 enum { ORD_RGB, ORD_RBG, ORD_GRB, ORD_GBR, ORD_BRG, ORD_BGR };
 enum { FX_OFF, FX_CHRISTMAS, FX_CANDYCANE, FX_MULTI, FX_HALLOWEEN, FX_JULY4, FX_TWINKLE, FX_RAINBOW,
-       FX_CUSTOM, FX_COUNT };
+       FX_CUSTOM, FX_SOLID, FX_COUNT };
 #define ZONE_FOLLOW 0      // out.zone_fx: follow the main effect / playlist
 #define ZONE_DARK   0xFF   //              stay dark during effects
 enum { CUST_SOLID, CUST_ALTERNATE, CUST_CHASE, CUST_TWINKLE, CUST_FADE, CUST_COUNT };
@@ -70,7 +70,9 @@ typedef struct {
   uint8_t  dmx_on[2];       // RS-485 DMX outputs
   uint16_t dmx_univ[2];
   uint16_t spi_khz;         // clock speed for WS2801 / APA102
-  uint8_t  reserved[32];
+  uint8_t  power_off;       // master off (app / Home Assistant), blacks out everything
+  uint8_t  solid_rgb[3];    // colour for FX_SOLID
+  uint8_t  reserved[28];
   uint32_t crc;
 } config_t;
 

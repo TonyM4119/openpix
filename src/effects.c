@@ -94,6 +94,7 @@ void fx_color(int fx, int out, uint32_t k, uint32_t now, uint8_t speed, uint8_t 
       else { h -= 512; c.r = h; c.g = 0; c.b = 255 - h; }
       break;
     }
+    case FX_SOLID: c.r = cfg.solid_rgb[0]; c.g = cfg.solid_rgb[1]; c.b = cfg.solid_rgb[2]; break;
     case FX_CUSTOM: {
       // the user's own colours
       int n = cfg.cust_n ? cfg.cust_n : 1;

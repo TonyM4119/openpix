@@ -123,9 +123,16 @@ void sched_init(void) {
   sntp_init();
 }
 
+static int32_t sun_key;
+void sched_sun_changed(void) { sun_key = 0x7FFFFFFF; }
+
 void sched_task(void) {
   static uint32_t t;
   if ((uint32_t)(millis() - t) < 1000) return;
   t = millis();
+  if (synced) {   // keep today's sunrise/sunset current even when the schedule is off
+    int32_t day = sched_local() / 86400;
+    if (day != sunset_day || sun_key == 0x7FFFFFFF) { calc_sun(day); sun_key = 0; }
+  }
   on_cache = lights_on_now();
 }

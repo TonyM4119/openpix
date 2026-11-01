@@ -19,6 +19,14 @@ controller, which often doesn't come back on the network without a power cycle. 
 - firmware updates are staged and verified **before** anything is overwritten, and you can
   upload the stock HolidayCoro `.bin` to go back
 
+## Built-in holiday effects
+
+Christmas, Candy cane, Classic multicolor, Halloween, 4th of July, Warm twinkle, Rainbow.
+Pick one on the web page; it is saved and plays whenever no show data is arriving
+(xLights/FPP data takes over automatically, the effect resumes 3 s after it stops).
+
+![effects](docs/effects-preview.png)
+
 ## Install
 
 1. Open the stock web page, go to Firmware Update, and upload `openpix.bin`.

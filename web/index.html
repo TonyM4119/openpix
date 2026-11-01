@@ -33,6 +33,14 @@ progress{width:100%;height:14px}
 <main>
 <div class="card"><h2>Status</h2><div class="stats" id="stats"></div></div>
 
+<div class="card"><h2>Holiday effects</h2>
+<p class="mut">Plays on its own, no xLights needed. Saved, so it comes back after a power cut. Show data from xLights/FPP takes over automatically and the effect resumes 3 s after it stops.</p>
+<div class="row" id="fxb"></div>
+<div class="grid2" style="margin-top:10px">
+<div><label>Speed <span id="fxsv"></span></label><input id="fxs" type="range" min="1" max="10" oninput="$('fxsv').textContent=this.value" onchange="fxset()"></div>
+<div><label>Brightness <span id="fxbv"></span>%</label><input id="fxbr" type="range" min="5" max="100" step="5" oninput="$('fxbv').textContent=this.value" onchange="fxset()"></div>
+</div></div>
+
 <div class="card"><h2>Test lights</h2>
 <div class="row">
 <button onclick="test(0)">Off (show data)</button>
@@ -77,7 +85,8 @@ progress{width:100%;height:14px}
 <button onclick="reboot()">Reboot controller</button></div>
 </main><div id="toast"></div>
 <script>
-const ORD=['RGB','RBG','GRB','GBR','BRG','BGR'];let C=null,T=0,BASE='';
+const ORD=['RGB','RBG','GRB','GBR','BRG','BGR'];
+const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🇺🇸 4th of July','✨ Warm twinkle','🌈 Rainbow'];let C=null,T=0,BASE='';
 const $=i=>document.getElementById(i);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2500)}
 async function api(p,b){const o=b===undefined?{}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b};
@@ -85,7 +94,7 @@ const r=await fetch(BASE+p,o);if(!r.ok)throw new Error(await r.text());return r.
 function st(k,v){return `<div class="st"><small>${k}</small><span>${v}</span></div>`}
 async function status(){try{const s=await api('/api/status');const live=s.age>=0&&s.age<2000;
 $('dot').className='dot'+(live?' live':'');$('nm').textContent=s.name+' · '+s.fw;
-$('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live':s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)}catch(e){$('dot').className='dot'}}
+$('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?FX[s.fx]:s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)}catch(e){$('dot').className='dot'}}
 function fmt(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60);return h?h+'h '+m+'m':m+'m '+t%60+'s'}
 function sel(v){return '<select>'+ORD.map((o,i)=>`<option value="${i}"${i==v?' selected':''}>${o}</option>`).join('')+'</select>'}
 function rows(){let h='';for(let i=T*16;i<T*16+16;i++){const o=C.out[i];
@@ -99,7 +108,11 @@ if(o[2])for(let j=0;j<48;j++){if(j==i||!C.out[j][2])continue;if(us[i][0]<=us[j][
 $('uinfo').textContent=bad?'⚠ Red universes overlap another output (they would show the same data).':'Each 170 pixels uses one universe ('+C.usz+' channels).'}
 function tab(t,b){grab();T=t;document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');rows()}
 function quick(){grab();const p=+$('qp').value,o=+$('qo').value;let u=1;for(let i=0;i<48;i++){const x=C.out[i];if(i<16||x[2]){x[2]=i<16?p:x[2];x[7]=o;x[1]=1;x[0]=u;u+=Math.max(1,Math.ceil(x[2]*3/C.usz))}}rows();toast('Filled in. Press Save.')}
-function load(){return api('/api/config').then(c=>{C=c;['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;
+function fxbtns(){$('fxb').innerHTML=FX.map((n,i)=>`<button class="${C.fx==i?'pri':''}" onclick="fxset(${i})">${n}</button>`).join('');
+$('fxs').value=C.fxs;$('fxsv').textContent=C.fxs;$('fxbr').value=C.fxb;$('fxbv').textContent=C.fxb}
+async function fxset(i){const p=new URLSearchParams({fx:i===undefined?C.fx:i,fxs:$('fxs').value,fxb:$('fxbr').value});
+try{const c=await api('/api/config',p.toString());C.fx=c.fx;C.fxs=c.fxs;C.fxb=c.fxb;fxbtns();toast(i===undefined?'Saved ✓':FX[C.fx]+' ✓');status()}catch(e){toast('Failed: '+e.message)}}
+function load(){return api('/api/config').then(c=>{C=c;fxbtns();['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;
 $('qo').innerHTML=ORD.map((o,i)=>`<option value="${i}"${i==2?' selected':''}>${o}</option>`).join('');rows()})}
 async function save(){grab();const p=new URLSearchParams();['name','ip','mask','gw','usz','dhcp','hold'].forEach(k=>p.set(k,$(k).value));
 C.out.forEach((o,i)=>{const n=i+1;'ucpnzbrom'.split('').forEach((k,j)=>p.set(k+n,j==8?o[8]+1:o[j]))});

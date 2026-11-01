@@ -35,6 +35,8 @@ void config_defaults(config_t *c) {
   memcpy(c->ip, ip, 4); memcpy(c->mask, mask, 4); memcpy(c->gw, gw, 4);
   c->univ_size = 510;
   c->hold_last = 1;
+  c->fx_speed = 5;
+  c->fx_bright = 100;
   c->test_r = 255; c->test_g = 0; c->test_b = 255;
   for (int i = 0; i < NUM_OUT; i++) {
     c->out_map[i] = i;
@@ -69,6 +71,9 @@ void config_load(void) {
     if (cfg.out_map[i] >= NUM_OUT) cfg.out_map[i] = i;
     if (cfg.out[i].order > ORD_BGR) cfg.out[i].order = ORD_GRB;
   }
+  if (cfg.fx >= FX_COUNT) cfg.fx = FX_OFF;
+  if (!cfg.fx_speed || cfg.fx_speed > 10) cfg.fx_speed = 5;
+  if (!cfg.fx_bright || cfg.fx_bright > 100) cfg.fx_bright = 100;
   cfg.name[sizeof(cfg.name) - 1] = 0;
 }
 

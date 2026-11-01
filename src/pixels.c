@@ -3,6 +3,7 @@
 #include "board.h"
 #include "pixels.h"
 #include <string.h>
+#include "effects.h"
 
 uint8_t flat[FLAT_SIZE];
 
@@ -15,6 +16,12 @@ static uint32_t first_rx_ms, last_rx_ms, last_out_ms;
 static int pending, push_req;
 static uint32_t frames, fps_count, fps_val, fps_t;
 uint32_t g_frame_ms;
+
+// Built-in effect plays when selected and no show data arrived for 3 s.
+int pixels_fx_active(void) {
+  if (!cfg.fx || cfg.test_mode) return 0;
+  return !last_rx_ms || (uint32_t)(millis() - last_rx_ms) > 3000;
+}
 
 uint32_t pixels_fps(void) { return fps_val; }
 uint32_t pixels_frames(void) { return frames; }
@@ -75,6 +82,11 @@ static void get_rgb(int out, uint32_t k, uint8_t *r, uint8_t *g, uint8_t *b) {
       if (k < (uint32_t)out + 1) { *r = *g = *b = 160; } else { *r = 0; *g = 0; *b = 24; }
       return; }
     default: break;
+  }
+  if (pixels_fx_active()) {
+    fx_color(cfg.fx, out, k, now, cfg.fx_speed, r, g, b);
+    if (cfg.fx_bright < 100) { *r = *r * cfg.fx_bright / 100; *g = *g * cfg.fx_bright / 100; *b = *b * cfg.fx_bright / 100; }
+    return;
   }
   uint32_t idx = (uint32_t)(o->universe - 1) * cfg.univ_size + (o->channel ? o->channel - 1 : 0) + k * 3;
   if (idx + 2 >= FLAT_SIZE || o->universe == 0) { *r = *g = *b = 0; return; }
@@ -180,7 +192,7 @@ void pixels_task(void) {
   if ((uint32_t)(now - last_out_ms) < 2) return;
 
   int go = 0;
-  if (cfg.test_mode) {
+  if (cfg.test_mode || pixels_fx_active()) {
     go = (uint32_t)(now - last_out_ms) >= 25;
   } else if (pending) {
     if (push_req || all_received()) go = 1;

@@ -5,7 +5,7 @@ CC     = arm-none-eabi-gcc
 OBJCOPY= arm-none-eabi-objcopy
 CFLAGS = -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -O2 -g -std=gnu11 \
          -ffunction-sections -fdata-sections -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
-         -DSTM32F407xx -Isrc -Ibuild -I$(LWIP)/include -I$(CMSIS) -I$(DEV)
+         -MMD -MP -DSTM32F407xx -Isrc -Ibuild -I$(LWIP)/include -I$(CMSIS) -I$(DEV)
 LDFLAGS= -T link.ld -Wl,--gc-sections -Wl,-Map=build/openpix.map --specs=nano.specs  \
          -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 SRCS = $(wildcard src/*.c)
@@ -40,3 +40,4 @@ build/openpix.bin: build/openpix.elf
 
 clean:
 	rm -rf build
+-include $(OBJS:.o=.d)

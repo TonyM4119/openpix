@@ -110,6 +110,8 @@ static int build_status(char *buf, int max) {
      (unsigned long)proto_pkts_sacn, (unsigned long)proto_pkts_art, (unsigned long)proto_pkts_ddp,
      (unsigned long)eth_rx_count, (unsigned long)eth_tx_count, (unsigned long)eth_err_count,
      g_hse_ok, cfg.test_mode);
+  w--;  // reopen object
+  AP(",\"fx\":%u,\"fxon\":%d}", cfg.fx, pixels_fx_active());
   return w - buf;
 }
 
@@ -120,6 +122,7 @@ static int build_config(char *buf, int max) {
   AP(",\"dhcp\":%d,\"ip\":\"%u.%u.%u.%u\",\"mask\":\"%u.%u.%u.%u\",\"gw\":\"%u.%u.%u.%u\"",
      cfg.dhcp, cfg.ip[0], cfg.ip[1], cfg.ip[2], cfg.ip[3], cfg.mask[0], cfg.mask[1], cfg.mask[2],
      cfg.mask[3], cfg.gw[0], cfg.gw[1], cfg.gw[2], cfg.gw[3]);
+  AP(",\"fx\":%u,\"fxs\":%u,\"fxb\":%u", cfg.fx, cfg.fx_speed, cfg.fx_bright);
   AP(",\"usz\":%u,\"hold\":%u,\"test\":%u,\"tr\":%u,\"tg\":%u,\"tb\":%u,\"out\":[",
      cfg.univ_size, cfg.hold_last, cfg.test_mode, cfg.test_r, cfg.test_g, cfg.test_b);
   for (int i = 0; i < NUM_OUT; i++) {
@@ -144,6 +147,9 @@ static int apply_config_form(char *body) {
     else if (!strcmp(k, "gw"))   { if (parse_ip(v, ip) && memcmp(ip, cfg.gw, 4)) { memcpy(cfg.gw, ip, 4); net_changed = 1; } }
     else if (!strcmp(k, "usz"))  { if (n >= 3 && n <= 512) cfg.univ_size = n; }
     else if (!strcmp(k, "hold")) { cfg.hold_last = n ? 1 : 0; }
+    else if (!strcmp(k, "fx"))   { if (n >= 0 && n < FX_COUNT) cfg.fx = n; }
+    else if (!strcmp(k, "fxs"))  { if (n >= 1 && n <= 10) cfg.fx_speed = n; }
+    else if (!strcmp(k, "fxb"))  { if (n >= 1 && n <= 100) cfg.fx_bright = n; }
     else if (k[0] && strchr("ucpnzbrom", k[0]) && k[1] >= '0' && k[1] <= '9') {
       int i = atoi(k + 1) - 1;
       if (i < 0 || i >= NUM_OUT) continue;

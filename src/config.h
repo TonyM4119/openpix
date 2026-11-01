@@ -6,7 +6,7 @@
 #define MAX_UNIV     96     // universes we accept (1..96)
 
 enum { ORD_RGB, ORD_RBG, ORD_GRB, ORD_GBR, ORD_BRG, ORD_BGR };
-enum { PROTO_ANY = 0 };
+enum { FX_OFF, FX_CHRISTMAS, FX_CANDYCANE, FX_MULTI, FX_HALLOWEEN, FX_JULY4, FX_TWINKLE, FX_RAINBOW, FX_COUNT };
 
 typedef struct {
   uint16_t universe;     // start universe (1-based)
@@ -25,13 +25,15 @@ typedef struct {
   uint32_t version;
   char     name[32];
   uint8_t  dhcp;
-  uint8_t  pad0[3];
+  uint8_t  fx_bright;    // built-in effect brightness % (0 = treat as 100)
+  uint8_t  pad0[2];
   uint8_t  ip[4], mask[4], gw[4];
   uint16_t univ_size;    // channels per universe used for mapping (default 510)
   uint8_t  test_mode;    // 0 off, 1 solid, 2 rainbow, 3 chase, 4 identify
   uint8_t  test_r, test_g, test_b;
   uint8_t  hold_last;    // keep last frame when data stops (1) or blank (0)
-  uint8_t  pad1[2];
+  uint8_t  fx;           // built-in effect when no show data (0 = off), FX_*
+  uint8_t  fx_speed;     // 1..10 (0 = treat as 5)
   uint8_t  out_map[NUM_OUT];  // logical output -> physical line index (0..47)
   out_cfg_t out[NUM_OUT];
   uint32_t crc;

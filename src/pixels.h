@@ -11,6 +11,7 @@ void pixels_push(void);                      // request immediate output (DDP pu
 void pixels_task(void);                      // call from main loop
 void pixels_config_changed(void);
 uint32_t pixels_fps(void);
+int pixels_fx_active(void);
 uint32_t pixels_frames(void);
 uint32_t pixels_last_data_ms(void);
 extern uint32_t g_frame_ms;                  // ms spent with interrupts off for the last frame

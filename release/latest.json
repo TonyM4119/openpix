@@ -1,7 +1,7 @@
 {
- "version": "0.5.0",
- "file": "openpix-0.5.0.bin",
- "size": 111616,
- "crc32": 1494424297,
- "notes": "Pick your state instead of latitude/longitude; sunset shown correctly; temperatures in F; xLights can discover the controller (Art-Net); Home Assistant / WLED app support; master on/off."
+ "version": "0.5.1",
+ "file": "openpix-0.5.1.bin",
+ "size": 112640,
+ "crc32": 2942444488,
+ "notes": "Pick your state instead of latitude/longitude; sunset shown correctly; \u00b0F/\u00b0C setting (default \u00b0F); xLights can discover the controller (Art-Net); Home Assistant / WLED app support; master on/off."
 }

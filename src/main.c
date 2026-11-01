@@ -48,8 +48,9 @@ static void ui_task(void) {
     else snprintf(l, sizeof l, "No data %lus", (unsigned long)((now - last) / 1000));
     oled_text(4, l);
     if (g_overtemp) snprintf(l, sizeof l, "OVER TEMP - OUTPUTS OFF");
-    else if (g_sensors[0].ok) snprintf(l, sizeof l, "%d.%dV %dF%s", g_sensors[0].volt10 / 10, g_sensors[0].volt10 % 10,
-                                       g_sensors[0].temp_c * 9 / 5 + 32, g_fan_on ? " FAN" : "");
+    else if (g_sensors[0].ok) snprintf(l, sizeof l, "%d.%dV %d%c%s", g_sensors[0].volt10 / 10, g_sensors[0].volt10 % 10,
+                                       cfg.units_c ? g_sensors[0].temp_c : g_sensors[0].temp_c * 9 / 5 + 32,
+                                       cfg.units_c ? 'C' : 'F', g_fan_on ? " FAN" : "");
     else snprintf(l, sizeof l, "sACN %lu", (unsigned long)proto_pkts_sacn);
     oled_text(5, l);
     snprintf(l, sizeof l, "ArtNet %lu DDP %lu", (unsigned long)proto_pkts_art, (unsigned long)proto_pkts_ddp); oled_text(6, l);

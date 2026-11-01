@@ -78,8 +78,8 @@ progress{width:100%;height:14px}
 <div class="card"><h2>Safety</h2><div class="grid2">
 <div><label>Power limit (amps, 0 = off)</label><input id="pla" type="number"></div>
 <div><label>mA per LED color at full</label><input id="mapc" type="number"></div>
-<div><label>Fan on at (°F)</label><input id="fan" type="number"></div>
-<div><label>Outputs off at (°F, 0 = never)</label><input id="sdc" type="number"></div>
+<div><label>Fan on at (<span class="tu">°F</span>)</label><input id="fan" type="number"></div>
+<div><label>Outputs off at (<span class="tu">°F</span>, 0 = never)</label><input id="sdc" type="number"></div>
 </div>
 <p class="mut">The power limit dims everything evenly when the estimated draw goes over it. Your 5 V supply is rated 60 A; 50 A leaves headroom. Most 5 V pixels draw about 20 mA per color.</p>
 <div class="row"><button class="pri" onclick="saveSafe()">Save safety settings</button></div></div>
@@ -116,6 +116,7 @@ progress{width:100%;height:14px}
 <div><label>Subnet mask</label><input id="mask"></div>
 <div><label>Gateway</label><input id="gw"></div>
 <div><label>Channels per universe</label><input id="usz" type="number"></div>
+<div><label>Temperature units</label><select id="unit"><option value="0">°F</option><option value="1">°C</option></select></div>
 <div><label>When data stops</label><select id="hold"><option value="1">Hold last frame</option><option value="0">Go dark</option></select></div>
 </div>
 <p class="mut">Changing the IP moves the controller; this page will try to follow it.</p>
@@ -142,7 +143,7 @@ async function status(){try{const s=await api('/api/status');const live=s.age>=0
 $('dot').className='dot'+(live?' live':'');$('nm').textContent=s.name+' · '+s.fw;FWV=s.fw.split(' ')[1]||'0';
 $('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?FX[s.fx]:s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)
 +st('Power (est.)',(s.power_ma/1000).toFixed(1)+' A'+(s.limited?' (limited)':''))
-+(s.exp&&s.exp[0].ok?st('Port 1 board',(s.exp[0].v/10).toFixed(1)+' V · '+Math.round(s.exp[0].t*9/5+32)+' °F'):st('Port 1 board','no reading'))
++(s.exp&&s.exp[0].ok?st('Port 1 board',(s.exp[0].v/10).toFixed(1)+' V · '+tTxt(s.exp[0].t)):st('Port 1 board','no reading'))
 +st('Fan',s.hot?'⚠ OVER TEMP':s.fan?'On':'Off')+st('Clock',s.time?s.clock+' (sunset '+s.sunset+')':'not set');
 $('clk').textContent=s.time?('Controller time '+s.clock+', sunset '+s.sunset+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
 function fmt(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60);return h?h+'h '+m+'m':m+'m '+t%60+'s'}
@@ -171,7 +172,7 @@ $('tz').value=c.tz;$('dst').value=c.dst;
 {let best=0,bd=1e9;STATES.forEach((x,i)=>{const d=(x[1]-c.lat/1e4)**2+(x[2]-c.lon/1e4)**2;if(d<bd){bd=d;best=i}});
 $('st').innerHTML=STATES.map((x,i)=>`<option value="${i}"${i==best?' selected':''}>${x[0]}</option>`).join('')}
 $('days').innerHTML=DAYS.map((d,i)=>`<label style="display:inline-flex;gap:4px;margin-right:8px;color:var(--txt)"><input type="checkbox" class="dy" ${c.sdays>>i&1?'checked':''}>${d}</label>`).join('');schUi();
-['pla','mapc'].forEach(k=>$(k).value=c[k]);$('fan').value=c2f(c.fan);$('sdc').value=c.sdc?c2f(c.sdc):0}
+['pla','mapc'].forEach(k=>$(k).value=c[k]);$('fan').value=tOut(c.fan);$('sdc').value=c.sdc?tOut(c.sdc):0;document.querySelectorAll('.tu').forEach(x=>x.textContent=UC()?'°C':'°F')}
 let CUST=[],PL=[];
 function custUi(){const n=+$('cn').value;$('custc').innerHTML=CUST.slice(0,n).map((h,i)=>`<input type="color" value="#${h}" style="width:64px;height:44px;padding:2px" oninput="CUST[${i}]=this.value.slice(1)">`).join('')}
 function plUi(){$('pl').innerHTML=PL.map((e,i)=>`<div class="row" style="margin-bottom:6px"><select style="flex:2" onchange="PL[${i}][0]=+this.value">${FX.slice(1).map((n,j)=>`<option value="${j+1}"${j+1==e[0]?' selected':''}>${n}</option>`).join('')}</select>
@@ -183,19 +184,19 @@ function saveCust(){const o={cm:$('cm').value,cn:$('cn').value};CUST.forEach((h,
 function savePl(){const o={plon:$('plon').checked?1:0,pln:PL.length};PL.forEach((e,i)=>{o['pf'+(i+1)]=e[0];o['pm'+(i+1)]=e[1]});post(o,'Playlist saved ✓')}
 function saveSch(){let d=0;document.querySelectorAll('.dy').forEach((x,i)=>{if(x.checked)d|=1<<i});
 post({sch:$('sch').checked?1:0,osun:$('osun').value,onoff:$('onoff').value||0,onm:mh($('onm').value),offm:mh($('offm').value),tz:$('tz').value,dst:$('dst').value,lat:STATES[$('st').value][1],lon:STATES[$('st').value][2],sdays:d},'Schedule saved ✓')}
-function saveSafe(){const sd=+$('sdc').value;post({pla:$('pla').value,mapc:$('mapc').value,fan:f2c(+$('fan').value),sdc:sd?f2c(sd):0},'Safety settings saved ✓')}
-const c2f=c=>Math.round(c*9/5+32),f2c=f=>Math.round((f-32)*5/9);
+function saveSafe(){const sd=+$('sdc').value;post({pla:$('pla').value,mapc:$('mapc').value,fan:tIn(+$('fan').value),sdc:sd?tIn(sd):0},'Safety settings saved ✓')}
+const UC=()=>C&&C.unit==1,tOut=c=>UC()?c:Math.round(c*9/5+32),tIn=v=>UC()?v:Math.round((v-32)*5/9),tTxt=c=>tOut(c)+(UC()?' °C':' °F');
 async function syncTime(){try{await api('/api/time','utc='+Math.floor(Date.now()/1000));toast('Clock set ✓');status()}catch(e){toast(e.message)}}
 function fxbtns(){$('fxb').innerHTML=FX.map((n,i)=>`<button class="${C.fx==i?'pri':''}" onclick="fxset(${i})">${n}</button>`).join('');
 $('fxs').value=C.fxs;$('fxsv').textContent=C.fxs;$('fxbr').value=C.fxb;$('fxbv').textContent=C.fxb}
 async function fxset(i){const p=new URLSearchParams({fx:i===undefined?C.fx:i,fxs:$('fxs').value,fxb:$('fxbr').value});
 try{const c=await api('/api/config',p.toString());C.fx=c.fx;C.fxs=c.fxs;C.fxb=c.fxb;fxbtns();toast(i===undefined?'Saved ✓':FX[C.fx]+' ✓');status()}catch(e){toast('Failed: '+e.message)}}
-function load(){return api('/api/config').then(c=>{C=c;fxbtns();fillExtra(c);$('cn').onchange=custUi;$('osun').onchange=schUi;['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;
+function load(){return api('/api/config').then(c=>{C=c;fxbtns();fillExtra(c);$('cn').onchange=custUi;$('osun').onchange=schUi;['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;$('unit').value=c.unit||0;
 $('qo').innerHTML=ORD.map((o,i)=>`<option value="${i}"${i==2?' selected':''}>${o}</option>`).join('');rows()})}
-async function save(){grab();const p=new URLSearchParams();['name','ip','mask','gw','usz','dhcp','hold'].forEach(k=>p.set(k,$(k).value));
+async function save(){grab();const p=new URLSearchParams();['name','ip','mask','gw','usz','dhcp','hold','unit'].forEach(k=>p.set(k,$(k).value));
 C.out.forEach((o,i)=>{const n=i+1;'ucpnzbrom'.split('').forEach((k,j)=>p.set(k+n,j==8?o[8]+1:o[j]));p.set('f'+n,o[9])});
 const oldip=C.ip,newip=$('ip').value,dh=$('dhcp').value;
-try{C=await api('/api/config',p.toString());toast('Saved ✓');rows();if(dh=='0'&&newip!=oldip){toast('Moving to '+newip+'…');setTimeout(()=>location.href='http://'+newip+'/',2500)}}catch(e){toast('Save failed: '+e.message)}}
+try{C=await api('/api/config',p.toString());toast('Saved ✓');rows();fillExtra(C);if(dh=='0'&&newip!=oldip){toast('Moving to '+newip+'…');setTimeout(()=>location.href='http://'+newip+'/',2500)}}catch(e){toast('Save failed: '+e.message)}}
 async function test(m,r,g,b){const p=new URLSearchParams({mode:m});if(r!==undefined){p.set('r',r);p.set('g',g);p.set('b',b)}try{await api('/api/test',p.toString());toast(m?'Test on':'Test off');status()}catch(e){toast(e.message)}}
 function upload(){const f=$('fw').files[0];if(!f){toast('Choose a .bin file');return}
 if(!confirm('Install '+f.name+' ('+Math.round(f.size/1024)+' KB)? Do not unplug during the update.'))return;sendFw(f)}

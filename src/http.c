@@ -114,6 +114,7 @@ static int build_status(char *buf, int max) {
      (unsigned long)eth_rx_count, (unsigned long)eth_tx_count, (unsigned long)eth_err_count,
      g_hse_ok, cfg.test_mode);
   w--;  // reopen object
+  AP(",\"unit\":%u", cfg.units_c);
   AP(",\"pwr\":%d,\"fx\":%u,\"fxnow\":%d,\"fxon\":%d,\"schedon\":%d", !cfg.power_off, cfg.fx, fx_current(), pixels_fx_active(), fx_scheduled_on());
   AP(",\"power_ma\":%lu,\"limited\":%d,\"fan\":%d,\"hot\":%d,\"exp\":[", (unsigned long)g_power_ma,
      g_power_scale < 256, g_fan_on, g_overtemp);
@@ -137,6 +138,7 @@ static int build_config(char *buf, int max) {
      cfg.dhcp, cfg.ip[0], cfg.ip[1], cfg.ip[2], cfg.ip[3], cfg.mask[0], cfg.mask[1], cfg.mask[2],
      cfg.mask[3], cfg.gw[0], cfg.gw[1], cfg.gw[2], cfg.gw[3]);
   AP(",\"fx\":%u,\"fxs\":%u,\"fxb\":%u", cfg.fx, cfg.fx_speed, cfg.fx_bright);
+  AP(",\"unit\":%u", cfg.units_c);
   AP(",\"pwr\":%d,\"sol\":\"%02x%02x%02x\"", !cfg.power_off, cfg.solid_rgb[0], cfg.solid_rgb[1], cfg.solid_rgb[2]);
   AP(",\"pla\":%u,\"mapc\":%u,\"fan\":%u,\"sdc\":%u", cfg.power_limit_a, cfg.ma_per_ch, cfg.fan_on_c, cfg.shutdown_c);
   AP(",\"tz\":%d,\"dst\":%u,\"sch\":%u,\"lat\":%ld,\"lon\":%ld,\"osun\":%u,\"sdays\":%u,\"onoff\":%d,\"onm\":%u,\"offm\":%u",
@@ -175,6 +177,7 @@ static int apply_config_form(char *body) {
     else if (!strcmp(k, "fx"))   { if (n >= 0 && n < FX_COUNT) cfg.fx = n; }
     else if (!strcmp(k, "fxs"))  { if (n >= 1 && n <= 10) cfg.fx_speed = n; }
     else if (!strcmp(k, "fxb"))  { if (n >= 1 && n <= 100) cfg.fx_bright = n; }
+    else if (!strcmp(k, "unit")) { cfg.units_c = n ? 1 : 0; }
     else if (!strcmp(k, "pwr"))  { cfg.power_off = n ? 0 : 1; }
     else if (!strcmp(k, "sol"))  { unsigned long x = strtoul(v[0] == '#' ? v + 1 : v, 0, 16);
                                    cfg.solid_rgb[0] = x >> 16; cfg.solid_rgb[1] = x >> 8; cfg.solid_rgb[2] = x; }

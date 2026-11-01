@@ -1,7 +1,7 @@
 <!doctype html>
 <!--openpix-ui-->
 <html lang="en"><head>
-<meta name="ui-version" content="5">
+<meta name="ui-version" content="6">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lights</title>
 <style>
@@ -107,7 +107,7 @@ async function refresh(){try{S=await get('/api/status');$('dot').className='ok';
  $('now').textContent=now;$('nowsub').textContent=sub;
  $('info').innerHTML=[['Firmware',S.fw.replace('OpenPix ','')],['IP address',S.ip],['Running for',fmt(S.up)],['Device ID',S.id],
  ...(S.power_ma!==undefined?[['Power (est.)',(S.power_ma/1000).toFixed(1)+' A'+(S.limited?' · limited':'')],
-   ['Board temp',S.exp&&S.exp[0].ok?Math.round(S.exp[0].t*9/5+32)+' °F · '+(S.exp[0].v/10).toFixed(1)+' V':'—'],
+   ['Board temp',S.exp&&S.exp[0].ok?(S.unit==1?S.exp[0].t+' °C':Math.round(S.exp[0].t*9/5+32)+' °F')+' · '+(S.exp[0].v/10).toFixed(1)+' V':'—'],
    ['Fan',S.hot?'⚠ OVER TEMP':S.fan?'On':'Off'],['Clock',S.time?S.clock+' · sunset '+S.sunset:'not set']]:[]),['App',appInfo().replace('App ','')]].map(x=>`<div><small>${x[0]}</small><span>${x[1]}</span></div>`).join('');
  if(C)tiles()}catch(e){$('dot').className='';$('now').textContent='Controller not reachable';$('nowsub').textContent=IP+' · check power and Wi-Fi'}}
 function fmt(t){const d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);return d?d+'d '+h+'h':h?h+'h '+m+'m':m+'m'}

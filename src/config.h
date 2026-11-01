@@ -72,7 +72,8 @@ typedef struct {
   uint16_t spi_khz;         // clock speed for WS2801 / APA102
   uint8_t  power_off;       // master off (app / Home Assistant), blacks out everything
   uint8_t  solid_rgb[3];    // colour for FX_SOLID
-  uint8_t  reserved[28];
+  uint8_t  units_c;         // 0 = Fahrenheit (default), 1 = Celsius
+  uint8_t  reserved[27];
   uint32_t crc;
 } config_t;
 

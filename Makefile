@@ -35,6 +35,7 @@ build/openpix.elf: $(OBJS) link.ld
 
 build/openpix.bin: build/openpix.elf
 	$(OBJCOPY) -O binary $< $@
+	python3 tools/pad.py $@
 	@ls -l $@
 
 clean:

@@ -144,21 +144,23 @@ static void build_and_send(void) {
 
   const uint32_t mb = mbc & 0x00FF, mc = mbc & 0xFF00;
   const uint32_t f = g_sysclk / 1000000u;     // cycles per us
-  const uint32_t T0H = f * 35 / 100, T1H = f * 75 / 100, TP = f * 125 / 100;
+  // WS2811 (fast) / WS2812: 0 = ~0.32 us high, 1 = ~0.70 us high, 1.25 us period
+  const uint32_t T0H = f * 30 / 100, T1H = f * 70 / 100, TP = f * 125 / 100;
 
   __disable_irq();
   uint32_t t0 = cyc();
   uint32_t t = t0;
   for (uint32_t i = 0; i < nbits; i++) {
     const slice_t s = slices[i];
+    // compute the "zero bit" pattern before the period starts so the
+    // high-time is set only by the wait below
+    const uint32_t lb = ((~s.bc) & mb) << 16, lc = ((~s.bc) & mc) << 16;
+    const uint32_t le = ((~s.e) & me) << 16, ld = ((~s.d) & md) << 16;
     while ((uint32_t)(cyc() - t) < TP) {}
     t += TP;
     GPIOB->BSRR = mb; GPIOC->BSRR = mc; GPIOE->BSRR = me; GPIOD->BSRR = md;
     while ((uint32_t)(cyc() - t) < T0H) {}
-    GPIOB->BSRR = ((~s.bc) & mb) << 16;
-    GPIOC->BSRR = ((~s.bc) & mc) << 16;
-    GPIOE->BSRR = ((~s.e) & me) << 16;
-    GPIOD->BSRR = ((~s.d) & md) << 16;
+    GPIOB->BSRR = lb; GPIOC->BSRR = lc; GPIOE->BSRR = le; GPIOD->BSRR = ld;
     while ((uint32_t)(cyc() - t) < T1H) {}
     GPIOB->BSRR = mb << 16; GPIOC->BSRR = mc << 16; GPIOE->BSRR = me << 16; GPIOD->BSRR = md << 16;
   }

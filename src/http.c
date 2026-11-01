@@ -36,6 +36,7 @@ typedef struct {
   int clen_chunk; uint32_t wr;
   const uint8_t *tx; uint32_t tx_left; int tx_copy;
   int close_after;
+  uint32_t last_ms;
   // big buffers last (not cleared on accept)
   char hdr[HDR_MAX];
   uint8_t chunk[512];
@@ -308,6 +309,7 @@ static err_t on_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) 
   conn_t *c = arg;
   if (!p || err != ERR_OK) { if (p) pbuf_free(p); conn_free(c); return ERR_OK; }
   tcp_recved(pcb, p->tot_len);
+  c->last_ms = millis();
   if (c->state == 2) { pbuf_free(p); return ERR_OK; }
   for (struct pbuf *q = p; q; q = q->next) {
     const uint8_t *d = q->payload; uint32_t n = q->len;
@@ -366,7 +368,7 @@ static err_t on_poll(void *arg, struct tcp_pcb *pcb) {
   conn_t *c = arg;
   if (!c) return ERR_OK;
   if (c->state == 2) { if (c->tx_left) pump(c); else conn_free(c); }
-  else if (!c->is_upload) conn_free(c);  // idle too long
+  else if (!c->is_upload || (uint32_t)(millis() - c->last_ms) > 30000) conn_free(c);  // idle too long
   return ERR_OK;
 }
 
@@ -378,7 +380,7 @@ static err_t on_accept(void *arg, struct tcp_pcb *pcb, err_t err) {
   if (!c) { tcp_abort(pcb); return ERR_ABRT; }
   memset(c, 0, offsetof(conn_t, hdr));
   c->hdr[0] = 0;
-  c->used = 1; c->pcb = pcb;
+  c->used = 1; c->pcb = pcb; c->last_ms = millis();
   tcp_arg(pcb, c);
   tcp_recv(pcb, on_recv);
   tcp_sent(pcb, on_sent);

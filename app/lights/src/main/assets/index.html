@@ -1,7 +1,7 @@
 <!doctype html>
 <!--openpix-ui-->
 <html lang="en"><head>
-<meta name="ui-version" content="9">
+<meta name="ui-version" content="10">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lights</title>
 <style>
@@ -25,6 +25,7 @@ button{background:#25303b;color:var(--txt);border:1px solid #33404d;border-radiu
 button.pri{background:var(--acc);border-color:var(--acc);color:#04121d}button.off{background:#2b1a1a;border-color:#4a2626}
 button:active{transform:scale(.98)}
 input[type=range]{width:100%;accent-color:var(--acc);height:32px}
+select.dd{width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit}
 input[type=text]{width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit}
 label{display:flex;justify-content:space-between;color:var(--mut);font-size:14px;margin-top:6px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -40,6 +41,7 @@ body.light{--bg:#f3f5f8;--card:#ffffff;--line:#dde2e8;--txt:#1b2129;--mut:#5f6b7
 body.light .tile,body.light .info div{background:#f0f3f7;border-color:#e2e7ed}body.light .tile.sel{background:#e3f0fc;border-color:var(--acc)}
 body.light button{background:#eef1f5;border-color:#cfd6de;color:var(--txt)}body.light button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
 body.light button.off{background:#fdecec;border-color:#f3c4c4;color:#9b1c1c}
+body.light select.dd{background:#fff;color:var(--txt);border-color:#cfd6de}
 body.light input[type=text]{background:#fff;color:var(--txt);border-color:#cfd6de}body.light #toast{background:#fff;color:var(--txt)}
 #theme{padding:6px 10px;font-size:16px;line-height:1;margin-left:8px}
 </style></head><body>
@@ -59,8 +61,8 @@ body.light input[type=text]{background:#fff;color:var(--txt);border-color:#cfd6d
 <div class="pw" style="margin-top:12px"><button class="pri" onclick="lightsOn()">Lights on</button><button class="off" onclick="lightsOff()">Lights off</button></div></div>
 
 <div class="card"><h2>Holiday effects</h2><div class="grid" id="fx"></div>
-<label>More effects</label><select id="more" onchange="if(this.value>0)pick(+this.value)" style="width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit"></select>
-<label>Palette</label><select id="pal" onchange="setFx()" style="width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit"></select>
+<div id="xfx" class="hide"><label>More effects</label><select id="more" class="dd" onchange="if(this.value>0)pick(+this.value)"></select>
+<label>Palette</label><select id="pal" class="dd" onchange="setFx()"></select></div>
 <label>Brightness <span id="bv"></span></label><input type="range" id="br" min="5" max="100" step="5" oninput="$('bv').textContent=this.value+'%'" onchange="setFx()">
 <label>Speed <span id="sv"></span></label><input type="range" id="sp" min="1" max="10" oninput="$('sv').textContent=this.value" onchange="setFx()">
 </div>
@@ -112,7 +114,7 @@ const MORE=['Breathe','Wipe','Theater chase','Running lights','Sparkle','Glitter
 const PALS=['Effect default','Rainbow','Christmas','Candy cane','Halloween','USA','Fire','Ocean','Forest','Lava','Party','Pastel','Sunset','Ice','Warm white','Valentine','St. Patrick','Easter','Autumn','My colors'];
 async function sleepT(m){try{await post('/api/sleep',{min:m});toast(m?'Lights off in '+m+' min':'Sleep timer off');refresh()}catch(e){toast('Failed: '+e.message)}}
 async function applyPreset(i){try{C=await post('/api/preset',{act:'apply',i});toast('Preset applied ✓');tiles();refresh()}catch(e){toast('Failed: '+e.message)}}
-function extraUi(){if(C.pal===undefined)return;
+function extraUi(){$('xfx').classList.toggle('hide',C.pal===undefined);if(C.pal===undefined)return;
  $('more').innerHTML='<option value="0">Choose…</option>'+MORE.map((n,i)=>`<option value="${i+10}"${C.fx==i+10?' selected':''}>${n}</option>`).join('');
  $('pal').innerHTML=PALS.map((n,i)=>`<option value="${i}"${i==C.pal?' selected':''}>${n}</option>`).join('');
  const ps=(C.presets||[]).map((p,i)=>p?`<button onclick="applyPreset(${i})">★ ${p.name}</button>`:'').join('');if(ps)$('presets').innerHTML=ps}

@@ -29,7 +29,7 @@ uint32_t crc32(const void *data, uint32_t len, uint32_t crc) {
 static void config_v2_defaults(config_t *c) {
   c->power_limit_a = 50;      // the stock power supply is 60 A; keep some headroom
   c->ma_per_ch = 20;
-  c->fan_on_c = 37;           // stock default 100F / 37C
+  c->fan_on_c = 38;           // 100 F
   c->shutdown_c = 60;         // stock default 140F / 60C
   c->tz_min = -300;           // US Eastern
   c->dst_us = 1;
@@ -114,6 +114,7 @@ void config_load(void) {
   if (!cfg.fx_speed || cfg.fx_speed > 10) cfg.fx_speed = 5;
   if (!cfg.fx_bright || cfg.fx_bright > 100) cfg.fx_bright = 100;
   if (!cfg.ma_per_ch || cfg.ma_per_ch > 60) cfg.ma_per_ch = 20;
+  if (cfg.fan_on_c == 37) cfg.fan_on_c = 38;   // old default showed as 99 F; 38 C = 100 F
   if (cfg.pl_count > MAX_PLAYLIST) cfg.pl_count = MAX_PLAYLIST;
   if (!cfg.cust_n || cfg.cust_n > 4) cfg.cust_n = 2;
   if (cfg.cust_mode >= CUST_COUNT) cfg.cust_mode = CUST_ALTERNATE;

@@ -18,7 +18,7 @@
 #include "stm32f407xx.h"
 
 #define FW_NAME    "OpenPix"
-#define FW_VERSION "0.8.1"
+#define FW_VERSION "0.8.2"
 
 extern volatile uint32_t g_ms;
 extern uint32_t g_sysclk;

@@ -92,7 +92,7 @@ progress{width:100%;height:14px}
 </main><div id="toast"></div>
 <script>
 const ORD=['RGB','RBG','GRB','GBR','BRG','BGR'];
-const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🇺🇸 4th of July','✨ Warm twinkle','🌈 Rainbow'];let C=null,T=0,BASE='';
+const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🎆 4th of July','✨ Warm twinkle','🌈 Rainbow'];let C=null,T=0,BASE='';
 const $=i=>document.getElementById(i);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2500)}
 async function api(p,b){const o=b===undefined?{}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b};

@@ -1,7 +1,7 @@
 {
- "version": "0.3.1",
- "file": "openpix-0.3.1.bin",
- "size": 70656,
- "crc32": 4194260083,
- "notes": "Screen now shows which holiday effect is playing. (First over-the-air update test.)"
+ "version": "0.3.2",
+ "file": "openpix-0.3.2.bin",
+ "size": 69632,
+ "crc32": 1977446457,
+ "notes": "4th of July button now shows fireworks (flag emoji does not display on Windows)."
 }

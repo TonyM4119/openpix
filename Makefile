@@ -17,9 +17,10 @@ OBJS = $(SRCS:src/%.c=build/%.o) $(LW:%.c=build/lwip/%.o)
 
 all: build/openpix.bin
 
-build/web_index.h: web/index.html tools/embed.py
+WEB = web/index.html web/icon.png web/manifest.json
+build/web_index.h: $(WEB) tools/embed.py
 	@mkdir -p build
-	python3 tools/embed.py $< $@
+	python3 tools/embed.py $@ $(WEB)
 
 build/%.o: src/%.c build/web_index.h
 	@mkdir -p $(dir $@)

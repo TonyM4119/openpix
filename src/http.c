@@ -262,7 +262,12 @@ static void upload_finish(conn_t *c) {
 static void handle_request(conn_t *c) {
   if (!strcmp(c->method, "GET")) {
     if (!strcmp(c->path, "/") || !strcmp(c->path, "/index.html")) {
-      respond(c, "200 OK", "text/html; charset=utf-8", web_index_gz, sizeof(web_index_gz), 1, 0);
+      respond(c, "200 OK", "text/html; charset=utf-8", web_index_html_gz, sizeof(web_index_html_gz), 1, 0);
+    } else if (!strcmp(c->path, "/icon.png") || !strcmp(c->path, "/apple-touch-icon.png") ||
+               !strcmp(c->path, "/favicon.ico")) {
+      respond(c, "200 OK", "image/png", web_icon_png, sizeof(web_icon_png), 0, 0);
+    } else if (!strcmp(c->path, "/manifest.json")) {
+      respond(c, "200 OK", "application/manifest+json", web_manifest_json, sizeof(web_manifest_json), 0, 0);
     } else if (!strcmp(c->path, "/api/status")) {
       respond_json(c, build_status(c->out, sizeof(c->out)));
     } else if (!strcmp(c->path, "/api/config")) {

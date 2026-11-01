@@ -43,6 +43,19 @@ To go back to stock: Firmware card → upload the HolidayCoro `.bin`.
 - Static IP 10.0.0.80 / 255.255.255.0, gateway 10.0.0.1
 - Outputs 1–16: 340 pixels, GRB, universes 1, 3, 5 … 31 (510 channels per universe)
 
+## Updates
+
+The web page has a **Check for updates** button. Your browser downloads
+`release/latest.json` and the `.bin` from this repo (raw.githubusercontent.com),
+checks size and CRC32, and uploads it to the controller. The repo must be public.
+
+To publish a new version: bump `FW_VERSION` in `src/board.h`, run
+`tools/release.sh "what changed"`, commit and push.
+
+## Use it like an app
+
+Open the controller page on your phone and choose **Add to Home screen**.
+
 ## Build
 
 ```

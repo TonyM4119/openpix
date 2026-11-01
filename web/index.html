@@ -2,6 +2,9 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OpenPix</title>
+<link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/icon.png"><link rel="icon" href="/icon.png">
+<meta name="theme-color" content="#0f1216"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lights"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 :root{--bg:#0f1216;--card:#181d23;--line:#29313a;--txt:#e6e9ee;--mut:#8b96a3;--acc:#4fb3ff;--ok:#3ccf7a;--bad:#ff5c5c;--warn:#ffb84f}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -79,9 +82,12 @@ progress{width:100%;height:14px}
 <button class="pri" onclick="save()">Save</button></div>
 
 <div class="card"><h2>Firmware</h2>
-<p class="mut">Upload an OpenPix .bin, or the original HolidayCoro .bin to go back to stock. The file is fully received and checked before anything is replaced.</p>
+<div class="row"><button class="pri" onclick="checkUpd(1)">Check for updates</button><span id="updmsg" class="mut"></span></div>
+<div id="updbox" style="display:none;margin-top:8px"></div>
+<p class="mut" style="margin-top:14px">Or install a file: an OpenPix .bin, or the original HolidayCoro .bin to go back to stock. The file is fully received and checked before anything is replaced.</p>
 <div class="row"><input type="file" id="fw" accept=".bin" style="flex:1"><button onclick="upload()">Upload &amp; install</button></div>
 <progress id="pg" value="0" max="100" style="display:none"></progress><p id="fwmsg" class="mut"></p>
+<p class="mut">Tip: in your phone browser choose "Add to Home screen" to use this page like an app.</p>
 <button onclick="reboot()">Reboot controller</button></div>
 </main><div id="toast"></div>
 <script>
@@ -93,7 +99,7 @@ async function api(p,b){const o=b===undefined?{}:{method:'POST',headers:{'Conten
 const r=await fetch(BASE+p,o);if(!r.ok)throw new Error(await r.text());return r.headers.get('content-type').includes('json')?r.json():r.text()}
 function st(k,v){return `<div class="st"><small>${k}</small><span>${v}</span></div>`}
 async function status(){try{const s=await api('/api/status');const live=s.age>=0&&s.age<2000;
-$('dot').className='dot'+(live?' live':'');$('nm').textContent=s.name+' · '+s.fw;
+$('dot').className='dot'+(live?' live':'');$('nm').textContent=s.name+' · '+s.fw;FWV=s.fw.split(' ')[1]||'0';
 $('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?FX[s.fx]:s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)}catch(e){$('dot').className='dot'}}
 function fmt(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60);return h?h+'h '+m+'m':m+'m '+t%60+'s'}
 function sel(v){return '<select>'+ORD.map((o,i)=>`<option value="${i}"${i==v?' selected':''}>${o}</option>`).join('')+'</select>'}
@@ -120,11 +126,27 @@ const oldip=C.ip,newip=$('ip').value,dh=$('dhcp').value;
 try{C=await api('/api/config',p.toString());toast('Saved ✓');rows();if(dh=='0'&&newip!=oldip){toast('Moving to '+newip+'…');setTimeout(()=>location.href='http://'+newip+'/',2500)}}catch(e){toast('Save failed: '+e.message)}}
 async function test(m,r,g,b){const p=new URLSearchParams({mode:m});if(r!==undefined){p.set('r',r);p.set('g',g);p.set('b',b)}try{await api('/api/test',p.toString());toast(m?'Test on':'Test off');status()}catch(e){toast(e.message)}}
 function upload(){const f=$('fw').files[0];if(!f){toast('Choose a .bin file');return}
-if(!confirm('Install '+f.name+' ('+Math.round(f.size/1024)+' KB)? Do not unplug during the update.'))return;
-const x=new XMLHttpRequest();x.open('POST',BASE+'/api/update');$('pg').style.display='block';$('fwmsg').textContent='Erasing and uploading…';
+if(!confirm('Install '+f.name+' ('+Math.round(f.size/1024)+' KB)? Do not unplug during the update.'))return;sendFw(f)}
+function sendFw(blob){const x=new XMLHttpRequest();x.open('POST',BASE+'/api/update');$('pg').style.display='block';$('fwmsg').textContent='Erasing and uploading…';
 x.upload.onprogress=e=>{if(e.lengthComputable)$('pg').value=e.loaded*100/e.total};
-x.onload=()=>{$('fwmsg').textContent=x.responseText;if(x.status==200){let n=0;const w=setInterval(()=>{n++;fetch(BASE+'/api/status').then(r=>{if(r.ok){clearInterval(w);$('fwmsg').textContent='Back online ✓';setTimeout(()=>location.reload(),800)}}).catch(()=>{});if(n>60){clearInterval(w);$('fwmsg').textContent='Not back yet. If you installed stock firmware, its page is at the stock IP.'}},2000)}};
-x.onerror=()=>{$('fwmsg').textContent='Upload failed (connection lost). The old firmware is still installed.'};x.send(f)}
+x.onload=()=>{$('fwmsg').textContent=x.responseText;if(x.status==200){let n=0;const w=setInterval(()=>{n++;fetch(BASE+'/api/status').then(r=>{if(r.ok){clearInterval(w);$('fwmsg').textContent='Back online ✓';setTimeout(()=>location.reload(),800)}}).catch(()=>{});if(n>60){clearInterval(w);$('fwmsg').textContent='Not back yet. Power-cycle the controller. If you installed stock firmware, use its page.'}},2000)}};
+x.onerror=()=>{$('fwmsg').textContent='Upload failed (connection lost). The old firmware is still installed.'};x.send(blob)}
+const REL='https://raw.githubusercontent.com/TonyM4119/openpix/main/release/';let FWV='0',UPD=null;
+function vnum(v){return String(v).split('.').map(n=>parseInt(n)||0).reduce((a,n)=>a*1000+n,0)}
+function crc32(b){let c,t=crc32.t;if(!t){t=crc32.t=[];for(let n=0;n<256;n++){c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}}
+c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=t[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+async function checkUpd(manual){if(manual)$('updmsg').textContent='Checking GitHub…';
+try{const j=await (await fetch(REL+'latest.json?t='+Date.now(),{cache:'no-store'})).json();UPD=j;
+if(vnum(j.version)>vnum(FWV)){$('updmsg').textContent='';$('updbox').style.display='block';
+$('updbox').innerHTML=`<b>Version ${j.version} is available</b> (you have ${FWV})<p class="mut">${(j.notes||'').replace(/</g,'&lt;')}</p><button class="pri" onclick="installUpd()">Install ${j.version}</button>`;
+if(!manual)toast('Update '+j.version+' available')}
+else{$('updbox').style.display='none';if(manual)$('updmsg').textContent='Up to date ('+FWV+') ✓'}}
+catch(e){if(manual)$('updmsg').textContent='Could not reach GitHub. Is this phone/computer online, and is the openpix repo public?'}}
+async function installUpd(){const j=UPD;if(!j||!confirm('Download and install '+j.version+'? Do not unplug during the update.'))return;
+$('fwmsg').textContent='Downloading '+j.file+' from GitHub…';
+try{const b=new Uint8Array(await (await fetch(REL+j.file+'?t='+Date.now(),{cache:'no-store'})).arrayBuffer());
+if(j.size&&b.length!=j.size)throw new Error('size mismatch');if(j.crc32&&crc32(b)!=(j.crc32>>>0))throw new Error('checksum mismatch');
+sendFw(new Blob([b]))}catch(e){$('fwmsg').textContent='Download failed: '+e.message+'. Nothing was changed.'}}
 async function reboot(){if(!confirm('Reboot the controller?'))return;await api('/api/reboot','x=1');toast('Rebooting…');setTimeout(status,5000)}
-load().then(status);setInterval(status,2000);
+load().then(status).then(()=>checkUpd(0));setInterval(status,2000);
 </script></body></html>

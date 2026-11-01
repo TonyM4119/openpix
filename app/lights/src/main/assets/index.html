@@ -1,7 +1,7 @@
 <!doctype html>
 <!--openpix-ui-->
 <html lang="en"><head>
-<meta name="ui-version" content="8">
+<meta name="ui-version" content="9">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Lights</title>
 <style>
@@ -59,10 +59,15 @@ body.light input[type=text]{background:#fff;color:var(--txt);border-color:#cfd6d
 <div class="pw" style="margin-top:12px"><button class="pri" onclick="lightsOn()">Lights on</button><button class="off" onclick="lightsOff()">Lights off</button></div></div>
 
 <div class="card"><h2>Holiday effects</h2><div class="grid" id="fx"></div>
+<label>More effects</label><select id="more" onchange="if(this.value>0)pick(+this.value)" style="width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit"></select>
+<label>Palette</label><select id="pal" onchange="setFx()" style="width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit"></select>
 <label>Brightness <span id="bv"></span></label><input type="range" id="br" min="5" max="100" step="5" oninput="$('bv').textContent=this.value+'%'" onchange="setFx()">
 <label>Speed <span id="sv"></span></label><input type="range" id="sp" min="1" max="10" oninput="$('sv').textContent=this.value" onchange="setFx()">
 </div>
 
+<div class="card"><h2>Presets</h2><div id="presets" class="list"><p class="mut">No presets yet. Save them on the controller's web page.</p></div></div>
+<div class="card"><h2>Sleep timer</h2><div class="tests"><button onclick="sleepT(15)">15 min</button><button onclick="sleepT(30)">30 min</button><button onclick="sleepT(60)">1 hour</button></div>
+<div class="btns"><button class="wide" onclick="sleepT(0)">Cancel sleep timer</button></div></div>
 <div class="card"><h2>Test lights</h2><div class="tests">
 <button onclick="test(1,255,0,0)">Red</button><button onclick="test(1,0,255,0)">Green</button><button onclick="test(1,0,0,255)">Blue</button>
 <button onclick="test(1,255,255,255)">White</button><button onclick="test(4)">Identify</button><button onclick="test(0)">Stop test</button></div>
@@ -103,14 +108,22 @@ async function useIp(ip){if(!ip)return;try{const s=await req('GET','http://'+ip+
 function forget(){Native.setPref('ip','');IP='';showSetup()}
 // --- main ---
 function tiles(){$('fx').innerHTML=FX.map((f,i)=>`<div class="tile${C&&C.fx==i+1&&!(S&&S.test)?' sel':''}" onclick="pick(${i+1})"><i>${f[0]}</i>${f[1]}</div>`).join('')}
-async function loadCfg(){C=await get('/api/config');$('br').value=C.fxb;$('bv').textContent=C.fxb+'%';$('sp').value=C.fxs;$('sv').textContent=C.fxs;tiles()}
+const MORE=['Breathe','Wipe','Theater chase','Running lights','Sparkle','Glitter','🔥 Fire','☄️ Meteor','Comet','Scanner','Color flow','Gradient','❄️ Snowfall','🎇 Fireworks','Ripple','🕯️ Candle','⚡ Lightning','Bouncing balls','Dissolve','Strobe','Stripes','Fade','Twinkle colors','Sinelon','Juggle','💓 Heartbeat','🌊 Ocean waves','Aurora','🚨 Police','Chase 3','🎵 Music VU','🎵 Music beat','🎵 Music spectrum'];
+const PALS=['Effect default','Rainbow','Christmas','Candy cane','Halloween','USA','Fire','Ocean','Forest','Lava','Party','Pastel','Sunset','Ice','Warm white','Valentine','St. Patrick','Easter','Autumn','My colors'];
+async function sleepT(m){try{await post('/api/sleep',{min:m});toast(m?'Lights off in '+m+' min':'Sleep timer off');refresh()}catch(e){toast('Failed: '+e.message)}}
+async function applyPreset(i){try{C=await post('/api/preset',{act:'apply',i});toast('Preset applied ✓');tiles();refresh()}catch(e){toast('Failed: '+e.message)}}
+function extraUi(){if(C.pal===undefined)return;
+ $('more').innerHTML='<option value="0">Choose…</option>'+MORE.map((n,i)=>`<option value="${i+10}"${C.fx==i+10?' selected':''}>${n}</option>`).join('');
+ $('pal').innerHTML=PALS.map((n,i)=>`<option value="${i}"${i==C.pal?' selected':''}>${n}</option>`).join('');
+ const ps=(C.presets||[]).map((p,i)=>p?`<button onclick="applyPreset(${i})">★ ${p.name}</button>`:'').join('');if(ps)$('presets').innerHTML=ps}
+async function loadCfg(){C=await get('/api/config');$('br').value=C.fxb;$('bv').textContent=C.fxb+'%';$('sp').value=C.fxs;$('sv').textContent=C.fxs;tiles();extraUi()}
 async function refresh(){try{S=await get('/api/status');$('dot').className='ok';$('who').innerHTML=S.name+'<br>'+IP;
  const live=S.age>=0&&S.age<2000;let now,sub='';
  if(S.pwr===0){now='Off';sub='Tap Lights on or pick an effect'}
  else if(S.test){now=S.test==1?'Test / off':'Test pattern';sub='Tap Lights on or Stop test to go back'}
  else if(live){now='Live show';sub='Receiving from xLights/FPP ('+S.fps+' fps)'}
  else if(S.hot){now='⚠ Too hot — outputs off';sub='Board temperature is over the safety limit'}
- else if(S.fxon){const f=FX[(S.fxnow||S.fx)-1]||FX[0];now=S.schedon===0?'Off by schedule':f[0]+' '+f[1];sub=S.schedon===0?'Comes back on at the scheduled time':'Built-in effect'}
+ else if(S.fxon){const f=FX[(S.fxnow||S.fx)-1]||(MORE[(S.fxnow||S.fx)-10]?['',MORE[(S.fxnow||S.fx)-10]]:FX[0]);now=S.schedon===0?'Off by schedule':f[0]+' '+f[1];sub=S.schedon===0?'Comes back on at the scheduled time':(S.sleep?'Sleep timer: off in '+Math.ceil(S.sleep/60)+' min':'Built-in effect')}
  else{now='Off';sub='Waiting for show data'}
  $('now').textContent=now;$('nowsub').textContent=sub;
  $('info').innerHTML=[['Firmware',S.fw.replace('OpenPix ','')],['IP address',S.ip],['Running for',fmt(S.up)],['Device ID',S.id],
@@ -120,7 +133,7 @@ async function refresh(){try{S=await get('/api/status');$('dot').className='ok';
  if(C)tiles()}catch(e){$('dot').className='';$('now').textContent='Controller not reachable';$('nowsub').textContent=IP+' · check power and Wi-Fi'}}
 function fmt(t){const d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);return d?d+'d '+h+'h':h?h+'h '+m+'m':m+'m'}
 async function pick(i){try{await post('/api/test',{mode:0});C=await post('/api/config',{pwr:1,fx:i,fxs:$('sp').value,fxb:$('br').value});Native.setPref('lastfx',String(i));tiles();toast(FX[i-1][1]+' ✓');refresh()}catch(e){toast('Failed: '+e.message)}}
-async function setFx(){try{C=await post('/api/config',{fxs:$('sp').value,fxb:$('br').value});toast('Saved ✓')}catch(e){toast('Failed: '+e.message)}}
+async function setFx(){try{const o={fxs:$('sp').value,fxb:$('br').value};if(C.pal!==undefined)o.pal=$('pal').value;C=await post('/api/config',o);toast('Saved ✓')}catch(e){toast('Failed: '+e.message)}}
 async function lightsOff(){try{await post('/api/test',{mode:0});if(C&&C.pwr!==undefined)await post('/api/config',{pwr:0});else{await post('/api/config',{fx:0});await post('/api/test',{mode:1,r:0,g:0,b:0})}await loadCfg();refresh();toast('Lights off')}catch(e){toast('Failed: '+e.message)}}
 async function lightsOn(){const i=+Native.getPref('lastfx')||1;await pick(i)}
 async function test(m,r,g,b){const o={mode:m};if(r!==undefined)Object.assign(o,{r,g,b});try{await post('/api/test',o);refresh();toast(m?'Test on':'Test off')}catch(e){toast('Failed: '+e.message)}}

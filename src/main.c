@@ -9,6 +9,8 @@
 #include "sensors.h"
 #include "schedule.h"
 #include "dmx.h"
+#include "looks.h"
+#include "audio.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -75,10 +77,13 @@ int main(void) {
   oled_flush();
 
   config_load();
+  looks_load();
   cfg.test_mode = 0;
   if (defaults_combo_held()) {
     config_defaults(&cfg);
     config_save();
+    looks_defaults(&ex);
+    looks_save();
     oled_clear();
     oled_text(2, "DEFAULTS LOADED");
     oled_text(3, "IP 10.0.0.80");
@@ -92,6 +97,7 @@ int main(void) {
   net_init();
   http_init();
   sched_init();
+  audio_init();
 
   for (;;) {
     wdt_kick();
@@ -101,6 +107,7 @@ int main(void) {
     net_task();
     sensors_task();
     dmx_task();
+    looks_task();
     sched_task();
     ui_task();
   }

@@ -9,15 +9,28 @@
 #include "pixels.h"
 #include "net.h"
 #include "proto.h"
+#include "looks.h"
+#include "effects.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 // WLED effect index -> OpenPix effect. Index 0 is "Solid".
-static const uint8_t map_fx[] = {FX_SOLID, FX_CHRISTMAS, FX_CANDYCANE, FX_MULTI, FX_HALLOWEEN,
-                                 FX_JULY4, FX_TWINKLE, FX_RAINBOW, FX_CUSTOM};
-static const char *const fx_names[] = {"Solid", "Christmas", "Candy cane", "Multicolor", "Halloween",
-                                       "4th of July", "Warm twinkle", "Rainbow", "My colors"};
+static const uint8_t map_fx[] = {FX_SOLID, FX_CHRISTMAS, FX_CANDYCANE, FX_MULTI, FX_HALLOWEEN, FX_JULY4, FX_TWINKLE,
+  FX_RAINBOW, FX_CUSTOM, FX_BREATHE, FX_WIPE, FX_THEATER, FX_RUNNING, FX_SPARKLE, FX_GLITTER, FX_FIRE, FX_METEOR,
+  FX_COMET, FX_SCANNER, FX_FLOW, FX_GRADIENT, FX_SNOW, FX_FIREWORKS, FX_RIPPLE, FX_CANDLE, FX_LIGHTNING, FX_BOUNCE,
+  FX_DISSOLVE, FX_STROBE, FX_STRIPES, FX_FADE, FX_PTWINKLE, FX_SINELON, FX_JUGGLE, FX_HEARTBEAT, FX_WAVES, FX_AURORA,
+  FX_POLICE, FX_CHASE3, FX_VU, FX_BEAT, FX_SPECTRUM};
+static const char *const fx_names[] = {"Solid", "Christmas", "Candy cane", "Multicolor", "Halloween", "4th of July",
+  "Warm twinkle", "Rainbow", "My colors", "Breathe", "Wipe", "Theater chase", "Running lights", "Sparkle", "Glitter",
+  "Fire", "Meteor", "Comet", "Scanner", "Color flow", "Gradient", "Snowfall", "Fireworks", "Ripple", "Candle",
+  "Lightning", "Bouncing balls", "Dissolve", "Strobe", "Stripes", "Fade", "Twinkle colors", "Sinelon", "Juggle",
+  "Heartbeat", "Ocean waves", "Aurora", "Police", "Chase 3", "Music VU", "Music beat", "Music spectrum"};
+static const char *const pal_names[] = {"Default", "Rainbow", "Christmas", "Candy cane", "Halloween", "USA", "Fire",
+  "Ocean", "Forest", "Lava", "Party", "Pastel", "Sunset", "Ice", "Warm white", "Valentine", "St. Patrick",
+  "Easter", "Autumn", "My colors"};
+_Static_assert(sizeof(map_fx) == sizeof(fx_names) / sizeof(fx_names[0]), "fx names");
+_Static_assert(sizeof(pal_names) / sizeof(pal_names[0]) == PAL_COUNT, "palette names");
 #define NFX (int)(sizeof(map_fx) / sizeof(map_fx[0]))
 
 static int leds(void) {
@@ -34,15 +47,16 @@ static int on_state(void) { return !cfg.power_off && cfg.fx != FX_OFF; }
 #define AP(...) do { int _n = snprintf(w, end - w, __VA_ARGS__); if (_n > 0) w += (_n < end - w ? _n : end - w - 1); } while (0)
 
 static char *state(char *w, char *end) {
-  uint8_t *c = cfg.solid_rgb;
+  uint8_t c[3];
+  look_main_color(c);
   int n = leds();
   AP("{\"on\":%s,\"bri\":%d,\"transition\":7,\"ps\":-1,\"pl\":-1,\"lor\":0,\"mainseg\":0,"
      "\"nl\":{\"on\":false,\"dur\":60,\"mode\":1,\"tbri\":0,\"rem\":-1},\"udpn\":{\"send\":false,\"recv\":false,\"sgrp\":0,\"rgrp\":0},"
      "\"seg\":[{\"id\":0,\"start\":0,\"stop\":%d,\"len\":%d,\"grp\":1,\"spc\":0,\"of\":0,\"on\":true,\"frz\":false,"
-     "\"bri\":255,\"cct\":127,\"col\":[[%u,%u,%u],[0,0,0],[0,0,0]],\"fx\":%d,\"sx\":%d,\"ix\":128,\"pal\":0,"
+     "\"bri\":255,\"cct\":127,\"col\":[[%u,%u,%u],[0,0,0],[0,0,0]],\"fx\":%d,\"sx\":%d,\"ix\":%d,\"pal\":%d,"
      "\"c1\":128,\"c2\":128,\"c3\":16,\"sel\":true,\"rev\":false,\"mi\":false,\"o1\":false,\"o2\":false,\"o3\":false,\"si\":0,\"m12\":0}]}",
      on_state() ? "true" : "false", cfg.fx_bright * 255 / 100, n, n, c[0], c[1], c[2], wled_fx(),
-     cfg.fx_speed * 255 / 10);
+     cfg.fx_speed * 255 / 10, ex.intensity, ex.pal);
   return w;
 }
 
@@ -51,12 +65,12 @@ static char *info(char *w, char *end) {
   uint32_t age = pixels_last_data_ms() ? millis() - pixels_last_data_ms() : 0xFFFFFFFF;
   AP("{\"ver\":\"0.15.0\",\"vid\":2412100,\"leds\":{\"count\":%d,\"pwr\":%lu,\"fps\":%lu,\"maxpwr\":%u,\"maxseg\":1,"
      "\"seglc\":[1],\"lc\":1,\"rgbw\":false,\"wv\":0,\"cct\":0},\"str\":false,\"name\":\"%s\",\"udpport\":21324,"
-     "\"live\":%s,\"liveseg\":-1,\"lm\":\"%s\",\"lip\":\"\",\"ws\":-1,\"fxcount\":%d,\"palcount\":1,\"cpalcount\":0,\"maps\":[],"
+     "\"live\":%s,\"liveseg\":-1,\"lm\":\"%s\",\"lip\":\"\",\"ws\":-1,\"fxcount\":%d,\"palcount\":%d,\"cpalcount\":0,\"maps\":[],"
      "\"wifi\":{\"bssid\":\"\",\"rssi\":0,\"signal\":100,\"channel\":0},\"fs\":{\"u\":0,\"t\":0,\"pmt\":0},\"ndc\":0,"
      "\"arch\":\"gd32f450\",\"core\":\"openpix-%s\",\"lwip\":2,\"freeheap\":65536,\"uptime\":%lu,\"opt\":0,"
      "\"brand\":\"WLED\",\"product\":\"OpenPix\",\"mac\":\"%02x%02x%02x%02x%02x%02x\",\"ip\":\"%s\"}",
      leds(), (unsigned long)g_power_ma, (unsigned long)pixels_fps(), cfg.power_limit_a * 1000, cfg.name,
-     age < 2500 ? "true" : "false", age < 2500 ? "sACN/Art-Net/DDP" : "", NFX, FW_VERSION,
+     age < 2500 ? "true" : "false", age < 2500 ? "sACN/Art-Net/DDP" : "", NFX, PAL_COUNT, FW_VERSION,
      (unsigned long)(millis() / 1000), m[0], m[1], m[2], m[3], m[4], m[5], net_ip_str());
   return w;
 }
@@ -73,12 +87,18 @@ int wled_get(const char *path, char *buf, int max) {
   if (!strcmp(path, "/json/state")) w = state(w, end);
   else if (!strcmp(path, "/json/info")) w = info(w, end);
   else if (!strcmp(path, "/json/eff")) w = effects(w, end);
-  else if (!strcmp(path, "/json/pal")) AP("[\"Default\"]");
+  else if (!strcmp(path, "/json/pal")) { AP("["); for (int i = 0; i < PAL_COUNT; i++) AP("%s\"%s\"", i ? "," : "", pal_names[i]); AP("]"); }
   else if (!strcmp(path, "/json/si")) { AP("{\"state\":"); w = state(w, end); AP(",\"info\":"); w = info(w, end); AP("}"); }
   else if (!strcmp(path, "/json") || !strcmp(path, "/json/")) {
     AP("{\"state\":"); w = state(w, end); AP(",\"info\":"); w = info(w, end);
-    AP(",\"effects\":"); w = effects(w, end); AP(",\"palettes\":[\"Default\"]}");
-  } else if (!strcmp(path, "/presets.json")) AP("{}");
+    AP(",\"effects\":"); w = effects(w, end); AP(",\"palettes\":[");
+    for (int i = 0; i < PAL_COUNT; i++) AP("%s\"%s\"", i ? "," : "", pal_names[i]);
+    AP("]}");
+  } else if (!strcmp(path, "/presets.json")) {
+    AP("{\"0\":{}");
+    for (int i = 0; i < MAX_PRESETS; i++) if (ex.presets[i].used) AP(",\"%d\":{\"n\":\"%s\",\"on\":true}", i + 1, ex.presets[i].name);
+    AP("}");
+  }
   else return -1;
   return w - buf;
 }
@@ -114,6 +134,10 @@ int wled_post_state(char *body) {
     int f = atoi(p);
     if (f >= 0 && f < NFX) { cfg.fx = map_fx[f]; cfg.pl_on = 0; changed = 1; if (want_on < 0) want_on = 1; }
   }
+  int ex_ch = 0;
+  if ((p = key(s, "pal"))) { int v = atoi(p); if (v >= 0 && v < PAL_COUNT) { ex.pal = v; ex_ch = 1; changed = 1; } }
+  if ((p = key(s, "ix"))) { int v = atoi(p); if (v >= 0 && v <= 255) { ex.intensity = v; ex_ch = 1; changed = 1; } }
+  if ((p = key(body, "ps"))) { int v = atoi(p); if (v >= 1 && v <= MAX_PRESETS) { looks_apply_preset(v - 1); return 1; } }
   if ((p = key(s, "sx"))) { int v = atoi(p); cfg.fx_speed = v * 10 / 255; if (cfg.fx_speed < 1) cfg.fx_speed = 1; if (cfg.fx_speed > 10) cfg.fx_speed = 10; changed = 1; }
   if ((p = key(s, "col"))) {
     while (*p == '[' || *p == ' ') p++;
@@ -137,5 +161,6 @@ int wled_post_state(char *body) {
     config_save();
     cfg.test_mode = t;
   }
+  if (ex_ch) looks_save();
   return changed;
 }

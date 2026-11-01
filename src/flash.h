@@ -2,7 +2,9 @@
 #include <stdint.h>
 
 #define APP_BASE      0x08010000u
-#define APP_MAX       (448u * 1024u)
+#define APP_MAX       (320u * 1024u)
+#define EXTRA_BASE    0x08060000u   // sector 7
+#define EXTRA_SIZE    (128u * 1024u)
 #define STAGE_BASE    0x08080000u   // sectors 8..10
 #define STAGE_MAX     (384u * 1024u)
 #define CFG_BASE      0x080E0000u   // sector 11

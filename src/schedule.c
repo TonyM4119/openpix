@@ -3,6 +3,7 @@
 #include "schedule.h"
 #include "config.h"
 #include "pixels.h"
+#include "looks.h"
 #include "lwip/apps/sntp.h"
 #include "lwip/dns.h"
 #include <math.h>
@@ -102,18 +103,10 @@ static int lights_on_now(void) {
 static int on_cache = 1;
 int fx_scheduled_on(void) { return on_cache; }
 
-int fx_current(void) {
-  if (cfg.pl_on && cfg.pl_count) {
-    uint32_t total = 0;
-    for (int i = 0; i < cfg.pl_count; i++) total += cfg.pl_minutes[i] ? cfg.pl_minutes[i] : 1;
-    uint32_t pos = (millis() / 60000u) % total;
-    for (int i = 0; i < cfg.pl_count; i++) {
-      uint32_t m = cfg.pl_minutes[i] ? cfg.pl_minutes[i] : 1;
-      if (pos < m) return cfg.pl_fx[i] < FX_COUNT ? cfg.pl_fx[i] : FX_CHRISTMAS;
-      pos -= m;
-    }
-  }
-  return cfg.fx;
+int fx_current(void) { look_t l; look_current(&l); return l.fx; }
+
+void sched_local_date(int *m, int *d) {
+  int y; civil(sched_local() / 86400, &y, m, d);
 }
 
 void sched_init(void) {

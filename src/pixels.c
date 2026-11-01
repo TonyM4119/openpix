@@ -5,8 +5,9 @@
 #include <string.h>
 #include "effects.h"
 #include "sensors.h"
+#include "looks.h"
 
-uint8_t flat[FLAT_SIZE];
+uint8_t flat[FLAT_SIZE] __attribute__((section(".tcm")));   // CPU-only fast RAM
 
 typedef struct { uint16_t bc, e, d; } slice_t;   // bc: PB0-7 (low) + PC8-15 (high)
 #define SLICE_MAX (MAX_PIX * 32 + 32 + 400)   // room for APA102 (32 bits/pixel + start/end frames)
@@ -21,7 +22,7 @@ uint32_t g_frame_ms;
 
 // Built-in effect plays when selected and no show data arrived for 3 s.
 int pixels_fx_active(void) {
-  if ((!cfg.fx && !(cfg.pl_on && cfg.pl_count)) || cfg.test_mode) return 0;
+  if ((!cfg.fx && !(cfg.pl_on && cfg.pl_count) && !ex.cal_on) || cfg.test_mode) return 0;
   return !last_rx_ms || (uint32_t)(millis() - last_rx_ms) > 3000;
 }
 
@@ -75,6 +76,47 @@ static void hsv(uint32_t h, uint8_t *r, uint8_t *g, uint8_t *b) {
 static uint32_t frame_now;          // one timestamp per frame so both passes agree
 uint32_t g_power_ma, g_power_scale = 256;   // estimated draw and limiter scale (256 = none)
 
+
+// ---- effect rendering for one pixel of a look (segments, zones, brightness, gamma) ----
+static look_t cur_look, prev_look;
+static int in_transition;
+static uint32_t trans_f, trans_start;
+uint8_t g_preview[NUM_OUT][PREVIEW_N][3];
+
+static void fx_pixel(const look_t *lk, int out, uint32_t k, uint32_t n, uint32_t now, uint8_t *r, uint8_t *g, uint8_t *b) {
+  int fx, pal = lk->pal;
+  uint32_t kk = k, nn = n;
+  const seg_t *sg = 0;
+  for (int i = 0; i < MAX_SEGS; i++) {
+    const seg_t *s = &ex.segs[i];
+    if (s->out == out + 1 && k >= s->start && k < (uint32_t)s->start + s->count) { sg = s; break; }
+  }
+  if (sg) { fx = sg->fx; pal = sg->pal; kk = k - sg->start; nn = sg->count; }
+  else {
+    uint8_t z = lk->zone ? lk->zone[out] : cfg.out[out].zone_fx;
+    fx = z == ZONE_FOLLOW ? lk->fx : z;
+  }
+  if (fx == ZONE_DARK || !fx || fx >= FX_COUNT) { *r = *g = *b = 0; return; }
+  fx_color(lk, fx, pal, out, kk, nn, now, r, g, b);
+  uint32_t br = lk->bright;
+  if (br < 100) { *r = *r * br / 100; *g = *g * br / 100; *b = *b * br / 100; }
+  if (ex.gamma_fx) { *r = gamma8[*r]; *g = gamma8[*g]; *b = gamma8[*b]; }
+}
+
+// called once per frame: pick up look changes and run the crossfade
+static void looks_frame(uint32_t now) {
+  look_t l;
+  look_current(&l);
+  if (memcmp(&l, &cur_look, sizeof(l)) != 0) {
+    if (cur_look.fx && ex.transition_ds) { prev_look = cur_look; trans_start = now; in_transition = 1; }
+    cur_look = l;
+  }
+  if (in_transition) {
+    uint32_t len = ex.transition_ds * 100u, el = now - trans_start;
+    if (el >= len) in_transition = 0; else trans_f = el * 256 / len;
+  }
+}
+
 static void get_rgb(int out, uint32_t k, uint8_t *r, uint8_t *g, uint8_t *b) {
   out_cfg_t *o = &cfg.out[out];
   uint32_t now = frame_now;
@@ -89,15 +131,21 @@ static void get_rgb(int out, uint32_t k, uint8_t *r, uint8_t *g, uint8_t *b) {
     default: break;
   }
   if (pixels_fx_active()) {
-    int fx = o->zone_fx == ZONE_FOLLOW ? fx_current() : o->zone_fx;
-    if (fx == ZONE_DARK || !fx || !fx_scheduled_on()) { *r = *g = *b = 0; return; }
-    fx_color(fx, out, k, now, cfg.fx_speed, r, g, b);
-    if (cfg.fx_bright < 100) { *r = *r * cfg.fx_bright / 100; *g = *g * cfg.fx_bright / 100; *b = *b * cfg.fx_bright / 100; }
+    if (!fx_scheduled_on()) { *r = *g = *b = 0; return; }
+    fx_pixel(&cur_look, out, k, o->pixels, now, r, g, b);
+    if (in_transition) {
+      uint8_t r2, g2, b2;
+      fx_pixel(&prev_look, out, k, o->pixels, now, &r2, &g2, &b2);
+      *r = (*r * trans_f + r2 * (256 - trans_f)) >> 8;
+      *g = (*g * trans_f + g2 * (256 - trans_f)) >> 8;
+      *b = (*b * trans_f + b2 * (256 - trans_f)) >> 8;
+    }
     return;
   }
   uint32_t idx = (uint32_t)(o->universe - 1) * cfg.univ_size + (o->channel ? o->channel - 1 : 0) + k * 3;
   if (idx + 2 >= FLAT_SIZE || o->universe == 0) { *r = *g = *b = 0; return; }
   *r = flat[idx]; *g = flat[idx + 1]; *b = flat[idx + 2];
+  if (ex.gamma_data) { *r = gamma8[*r]; *g = gamma8[*g]; *b = gamma8[*b]; }
 }
 
 static void line_bit(int line, uint16_t *mb, uint16_t *me, uint16_t *md, int *field, uint16_t *bit) {
@@ -152,6 +200,7 @@ static void build_and_send(void) {
 
   // Pass 1: estimate current draw for the power limiter
   frame_now = millis();
+  looks_frame(frame_now);
   uint32_t sum = 0;
   int dark = g_overtemp || (cfg.power_off && !cfg.test_mode);
   if (!dark && cfg.power_limit_a) {
@@ -179,7 +228,8 @@ static void build_and_send(void) {
     if (dark) continue;   // over temperature: send all-black frames
     uint32_t total = o->pixels + o->nulls;
     if (total > MAX_PIX) total = MAX_PIX;
-    uint32_t sc = (uint32_t)o->bright * g_power_scale;   // /25600
+    uint32_t sc = (uint32_t)o->bright * g_power_scale * sleep_scale256() / 256;   // /25600
+    uint32_t pstep = o->pixels / PREVIEW_N + 1;
     for (uint32_t p = o->nulls; p < total; p++) {
       uint32_t k = p - o->nulls;
       if (o->reverse) k = o->pixels - 1 - k;
@@ -191,6 +241,7 @@ static void build_and_send(void) {
       uint8_t r, g, b;
       get_rgb(i, k, &r, &g, &b);
       if (sc < 25600) { r = r * sc / 25600; g = g * sc / 25600; b = b * sc / 25600; }
+      if (k % pstep == 0 && k / pstep < PREVIEW_N) { uint8_t *pv = g_preview[i][k / pstep]; pv[0] = r; pv[1] = g; pv[2] = b; }
       uint8_t c[3];
       switch (o->order) {
         case ORD_RGB: c[0] = r; c[1] = g; c[2] = b; break;

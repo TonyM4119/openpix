@@ -9,3 +9,4 @@ int32_t sched_local(void);     // seconds, local time incl. DST
 int  sched_sunset_min(void);
 int  sched_sunrise_min(void);
 void sched_sun_changed(void);   // location / time zone changed
+void sched_local_date(int *month, int *day);

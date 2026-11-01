@@ -85,6 +85,7 @@ __attribute__((noreturn, used)) void reset_c(void) {
   SysTick->CTRL = 0;
   for (int i = 0; i < 8; i++) { NVIC->ICER[i] = 0xFFFFFFFF; NVIC->ICPR[i] = 0xFFFFFFFF; }
   SCB->VTOR = 0x08010000;
+  RCC->AHB1ENR |= (1u << 20);   // TCM/CCM data RAM clock (on by default; make sure)
 
   uint32_t *s = &_sidata, *d = &_sdata;
   while (d < &_edata) *d++ = *s++;

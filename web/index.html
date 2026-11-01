@@ -44,13 +44,42 @@ body.light #toast{background:#fff;color:var(--txt)}
 <main>
 <div class="card"><h2>Status</h2><div class="stats" id="stats"></div></div>
 
-<div class="card"><h2>Holiday effects</h2>
+<div class="card"><h2>Effects</h2>
 <p class="mut">Plays on its own, no xLights needed. Saved, so it comes back after a power cut. Show data from xLights/FPP takes over automatically and the effect resumes 3 s after it stops.</p>
-<div class="row" id="fxb"></div>
-<div class="grid2" style="margin-top:10px">
+<div class="mut" style="margin:4px 0">Holiday</div><div class="row" id="fxb1"></div>
+<div class="mut" style="margin:10px 0 4px">Effects (use the palette below)</div><div class="row" id="fxb2"></div>
+<div class="mut" style="margin:10px 0 4px">Music (needs a network audio source, see Integrations)</div><div class="row" id="fxb3"></div>
+<div class="grid2" style="margin-top:12px">
+<div><label>Palette</label><select id="pal" onchange="fxset()"></select></div>
+<div><label>Solid color</label><input type="color" id="sol" style="height:38px" onchange="fxset()"></div>
 <div><label>Speed <span id="fxsv"></span></label><input id="fxs" type="range" min="1" max="10" oninput="$('fxsv').textContent=this.value" onchange="fxset()"></div>
 <div><label>Brightness <span id="fxbv"></span>%</label><input id="fxbr" type="range" min="5" max="100" step="5" oninput="$('fxbv').textContent=this.value" onchange="fxset()"></div>
-</div></div>
+<div><label>Size / amount <span id="inv"></span></label><input id="inten" type="range" min="0" max="255" oninput="$('inv').textContent=this.value" onchange="fxset()"></div>
+<div><label>Fade between effects (seconds)</label><input id="trans" type="number" min="0" max="10" step="0.5" onchange="fxset()"></div>
+</div>
+<div class="row" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center;color:var(--txt)"><input type="checkbox" id="gfx" onchange="fxset()"> Gamma-correct effects (more natural colors)</label>
+<label style="display:flex;gap:8px;align-items:center;color:var(--txt)"><input type="checkbox" id="gdata" onchange="fxset()"> Gamma-correct xLights data</label></div>
+<div class="mut" style="margin-top:12px">Live preview</div><canvas id="live" style="width:100%;height:auto;background:#000;border-radius:8px;image-rendering:pixelated"></canvas>
+</div>
+
+<div class="card"><h2>Presets</h2>
+<p class="mut">Save the current look (effect, palette, colors, speed, brightness, per-string effects) and bring it back with one tap. Presets can also go in the playlist and holiday calendar.</p>
+<div id="presets"></div></div>
+
+<div class="card"><h2>Sleep timer</h2><div class="row">
+<button onclick="sleepT(15)">15 min</button><button onclick="sleepT(30)">30 min</button><button onclick="sleepT(60)">1 hour</button><button onclick="sleepT(120)">2 hours</button><button onclick="sleepT(0)">Cancel</button>
+<span class="mut" id="sleepmsg"></span></div><p class="mut">Fades the lights out gradually, then turns them off.</p></div>
+
+<div class="card"><h2>Holiday calendar</h2>
+<p class="mut">Picks the effect automatically by date. While a date range matches it overrides the effect and the playlist.</p>
+<label style="display:flex;gap:8px;align-items:center;color:var(--txt)"><input type="checkbox" id="calon"> Use holiday calendar</label>
+<div id="cal" style="margin-top:8px"></div>
+<div class="row" style="margin-top:8px"><button onclick="calAdd()">+ Add date range</button><button class="pri" onclick="saveCal()">Save calendar</button></div></div>
+
+<div class="card"><h2>Segments</h2>
+<p class="mut">Run a different effect on part of a string, e.g. pixels 0-99 of output 1. Pixel numbers start at 0.</p>
+<div id="segs"></div>
+<div class="row" style="margin-top:8px"><button onclick="segAdd()">+ Add segment</button><button class="pri" onclick="saveSegs()">Save segments</button></div></div>
 
 <div class="card"><h2>My colors</h2>
 <p class="mut">Pick up to 4 colors, then choose 🎨 My colors above (or put it in the playlist).</p>
@@ -151,7 +180,11 @@ body.light #toast{background:#fff;color:var(--txt)}
 </main><div id="toast"></div>
 <script>
 const ORD=['RGB','RBG','GRB','GBR','BRG','BGR'];
-const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🎆 4th of July','✨ Warm twinkle','🌈 Rainbow','🎨 My colors'];let C=null,T=0,BASE='';
+const FX=['Off','🎄 Christmas','🍬 Candy cane','💡 Classic multicolor','🎃 Halloween','🎆 4th of July','✨ Warm twinkle','🌈 Rainbow','🎨 My colors','⚪ Solid color',
+'Breathe','Wipe','Theater chase','Running lights','Sparkle','Glitter','🔥 Fire','☄️ Meteor','Comet','Scanner','Color flow','Gradient','❄️ Snowfall','🎇 Fireworks','Ripple','🕯️ Candle',
+'⚡ Lightning','Bouncing balls','Dissolve','Strobe','Stripes','Fade','Twinkle colors','Sinelon','Juggle','💓 Heartbeat','🌊 Ocean waves','Aurora','🚨 Police','Chase 3',
+'🎵 Music VU','🎵 Music beat','🎵 Music spectrum'];
+const PALS=['Effect default','Rainbow','Christmas','Candy cane','Halloween','USA','Fire','Ocean','Forest','Lava','Party','Pastel','Sunset','Ice','Warm white','Valentine','St. Patrick','Easter','Autumn','My colors'];let C=null,T=0,BASE='';
 const $=i=>document.getElementById(i);
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2500)}
 async function api(p,b){const o=b===undefined?{}:{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b};
@@ -160,11 +193,11 @@ const t12=t=>{if(!t)return '';const a=t.split(':');let h=+a[0];const ap=h>=12?'P
 function st(k,v){return `<div class="st"><small>${k}</small><span>${v}</span></div>`}
 async function status(){try{const s=await api('/api/status');const live=s.age>=0&&s.age<2000;
 $('dot').className='dot'+(live?' live':'');$('nm').textContent=s.name+' · '+s.fw;FWV=s.fw.split(' ')[1]||'0';
-$('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?FX[s.fx]:s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)
+$('stats').innerHTML=st('Data',s.test?'Test mode':live?'Live show':s.fxon?(FX[s.fxnow]||FX[s.fx]):s.age<0?'Waiting':'Stopped')+st('FPS',s.fps)+st('IP',s.ip)+st('sACN pkts',s.sacn)+st('Art-Net pkts',s.art)+st('DDP pkts',s.ddp)+st('Uptime',fmt(s.up))+st('Frame time',s.frame_ms+' ms')+st('Device ID',s.id)
 +st('Power (est.)',(s.power_ma/1000).toFixed(1)+' A'+(s.limited?' (limited)':''))
 +(s.exp&&s.exp[0].ok?st('Port 1 board',(s.exp[0].v/10).toFixed(1)+' V · '+tTxt(s.exp[0].t)):st('Port 1 board','no reading'))
 +st('Fan',s.hot?'⚠ OVER TEMP':s.fan?'On':'Off')+st('Clock',s.time?t12(s.clock)+' (sunset '+t12(s.sunset)+')':'not set');
-$('clk').textContent=s.time?('Controller time '+t12(s.clock)+', sunset '+t12(s.sunset)+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
+$('sleepmsg').textContent=s.sleep?('Off in '+Math.ceil(s.sleep/60)+' min'):'';$('clk').textContent=s.time?('Controller time '+t12(s.clock)+', sunset '+t12(s.sunset)+(s.schedon?'':' · now: off by schedule')):'Clock not set yet'}catch(e){$('dot').className='dot'}}
 function fmt(t){const h=Math.floor(t/3600),m=Math.floor(t%3600/60);return h?h+'h '+m+'m':m+'m '+t%60+'s'}
 function sel(v){return '<select>'+ORD.map((o,i)=>`<option value="${i}"${i==v?' selected':''}>${o}</option>`).join('')+'</select>'}
 function rows(){let h='';for(let i=T*16;i<T*16+16;i++){const o=C.out[i];
@@ -183,6 +216,34 @@ return '<select class="z">'+o.map(x=>`<option value="${x[0]}"${x[0]==v?' selecte
 const STATES=[["Alabama",32.8,-86.8],["Alaska",61.4,-150.0],["Arizona",34.3,-111.7],["Arkansas",34.9,-92.4],["California",37.2,-119.5],["Colorado",39.0,-105.5],["Connecticut",41.6,-72.7],["Delaware",39.0,-75.5],["DistrictofColumbia",38.9,-77.0],["Florida",28.6,-82.4],["Georgia",32.7,-83.4],["Hawaii",20.8,-156.3],["Idaho",44.4,-114.6],["Illinois",40.0,-89.2],["Indiana",39.9,-86.3],["Iowa",42.1,-93.5],["Kansas",38.5,-98.4],["Kentucky",37.5,-85.3],["Louisiana",31.1,-92.0],["Maine",45.4,-69.2],["Maryland",39.0,-76.8],["Massachusetts",42.3,-71.8],["Michigan",44.3,-85.4],["Minnesota",46.3,-94.3],["Mississippi",32.7,-89.7],["Missouri",38.4,-92.5],["Montana",47.0,-109.6],["Nebraska",41.5,-99.8],["Nevada",39.3,-116.6],["NewHampshire",43.7,-71.6],["NewJersey",40.2,-74.7],["NewMexico",34.4,-106.1],["NewYork",42.9,-75.5],["NorthCarolina",35.6,-79.4],["NorthDakota",47.5,-100.5],["Ohio",40.3,-82.8],["Oklahoma",35.6,-97.5],["Oregon",43.9,-120.6],["Pennsylvania",40.9,-77.8],["RhodeIsland",41.7,-71.5],["SouthCarolina",33.9,-80.9],["SouthDakota",44.4,-100.2],["Tennessee",35.9,-86.4],["Texas",31.5,-99.3],["Utah",39.3,-111.7],["Vermont",44.1,-72.7],["Virginia",37.5,-78.9],["Washington",47.4,-120.5],["WestVirginia",38.6,-80.6],["Wisconsin",44.6,-89.9],["Wyoming",43.0,-107.6],["PuertoRico",18.2,-66.5]];
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const hm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'),mh=t=>{const a=t.split(':');return (+a[0])*60+(+a[1]||0)};
+
+function presetUi(){$('presets').innerHTML=(C.presets||[]).map((p,i)=>`<div class="row" style="margin-bottom:6px"><span style="min-width:22px" class="mut">${i+1}</span>
+${p?`<b style="flex:1">${p.name}</b><span class="mut">${FX[p.fx]||''}</span><button class="pri" onclick="preset('apply',${i})">Apply</button><button onclick="presetSave(${i},'${p.name.replace(/'/g,'')}')">Overwrite</button><button onclick="preset('del',${i})">✕</button>`
+:`<span class="mut" style="flex:1">empty</span><button onclick="presetSave(${i},'')">Save current look here</button>`}</div>`).join('')}
+async function preset(a,i,name){try{const c=await api('/api/preset',new URLSearchParams({act:a,i,name:name||''}).toString());Object.assign(C,c);fxbtns();toast(a=='apply'?'Preset applied ✓':a=='del'?'Deleted':'Preset saved ✓');status()}catch(e){toast('Failed: '+e.message)}}
+function presetSave(i,def){const n=prompt('Preset name',def||'My look');if(n)preset('save',i,n.slice(0,15))}
+let CAL=[],SEGS=[];
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const msel=(v,f)=>`<select onchange="${f}">`+MON.map((m,i)=>`<option value="${i+1}"${i+1==v?' selected':''}>${m}</option>`).join('')+'</select>';
+const dsel=(v,f)=>`<input type="number" min="1" max="31" value="${v}" style="width:64px" onchange="${f}">`;
+function calUi(){if(!CAL.length&&C.cal)CAL=C.cal.filter(c=>c[4]).map(c=>c.slice());$('calon').checked=!!C.calon;
+$('cal').innerHTML=CAL.map((c,i)=>`<div class="row" style="margin-bottom:6px">${msel(c[0],`CAL[${i}][0]=+this.value`)}${dsel(c[1],`CAL[${i}][1]=+this.value`)}<span class="mut">to</span>
+${msel(c[2],`CAL[${i}][2]=+this.value`)}${dsel(c[3],`CAL[${i}][3]=+this.value`)}<select style="flex:1;min-width:150px" onchange="CAL[${i}][4]=+this.value">${itemOpts(c[4])}</select><button onclick="CAL.splice(${i},1);calUi()">✕</button></div>`).join('')||'<p class="mut">No dates yet.</p>'}
+function calAdd(){if(CAL.length>=10){toast('Up to 10 ranges');return}CAL.push([12,1,12,31,1]);calUi()}
+function saveCal(){const o={calon:$('calon').checked?1:0};for(let i=0;i<10;i++){const c=CAL[i];o['cal'+i]=c?c.join('-'):'0-0-0-0-0'}post(o,'Calendar saved ✓').then(()=>{CAL=[];calUi()})}
+function segUi(){if(!SEGS.length&&C.segs)SEGS=C.segs.filter(g=>g[0]).map(g=>g.slice());
+const fo=v=>FX.slice(1).map((n,j)=>`<option value="${j+1}"${j+1==v?' selected':''}>${n}</option>`).join('')+`<option value="255"${v==255?' selected':''}>Dark</option>`;
+$('segs').innerHTML=SEGS.map((g,i)=>`<div class="row" style="margin-bottom:6px"><span class="mut">Out</span><input type="number" min="1" max="48" value="${g[0]}" style="width:64px" onchange="SEGS[${i}][0]=+this.value">
+<span class="mut">from</span><input type="number" min="0" value="${g[1]}" style="width:80px" onchange="SEGS[${i}][1]=+this.value"><span class="mut">count</span><input type="number" min="1" value="${g[2]}" style="width:80px" onchange="SEGS[${i}][2]=+this.value">
+<select style="flex:1;min-width:140px" onchange="SEGS[${i}][3]=+this.value">${fo(g[3])}</select><select onchange="SEGS[${i}][4]=+this.value">${PALS.map((n,j)=>`<option value="${j}"${j==g[4]?' selected':''}>${n}</option>`).join('')}</select><button onclick="SEGS.splice(${i},1);segUi()">✕</button></div>`).join('')||'<p class="mut">No segments.</p>'}
+function segAdd(){if(SEGS.length>=16){toast('Up to 16 segments');return}SEGS.push([1,0,50,17,0]);segUi()}
+function saveSegs(){const o={};for(let i=0;i<16;i++){const g=SEGS[i];o['seg'+i]=g?g.join(','):'0'}post(o,'Segments saved ✓').then(()=>{SEGS=[];segUi()})}
+async function sleepT(m){try{await api('/api/sleep','min='+m);toast(m?'Sleep timer: '+m+' min':'Sleep timer off');status()}catch(e){toast(e.message)}}
+async function live(){try{const d=await api('/api/live');const cv=$('live'),n=d.n,rows=d.o.length||1;cv.width=n;cv.height=rows;const x=cv.getContext('2d');const im=x.createImageData(n,rows);
+d.o.forEach((o,r)=>{for(let j=0;j<n;j++){const h=o[1].substr(j*6,6),q=(r*n+j)*4;im.data[q]=parseInt(h.substr(0,2),16);im.data[q+1]=parseInt(h.substr(2,2),16);im.data[q+2]=parseInt(h.substr(4,2),16);im.data[q+3]=255}});
+x.putImageData(im,0,0);cv.style.height=Math.min(rows*14,300)+'px'}catch(e){}}
+setInterval(()=>{if(!document.hidden)live()},700);
+
 function fillExtra(c){
 $('cn').value=c.cust.length||2;$('cm').value=c.cm;CUST=c.cust.slice();while(CUST.length<4)CUST.push(['ff0000','0000ff','ffffff','00ff00'][CUST.length]);custUi();
 $('plon').checked=!!c.plon;PL=c.pl.slice();plUi();
@@ -194,7 +255,7 @@ $('days').innerHTML=DAYS.map((d,i)=>`<label style="display:inline-flex;gap:4px;m
 ['pla','mapc','ptype','skhz'].forEach(k=>$(k).value=c[k]);$('dmx1').value=c.dmx[0][0];$('du1').value=c.dmx[0][1];$('dmx2').value=c.dmx[1][0];$('du2').value=c.dmx[1][1];$('w_skhz').style.display=c.ptype==0?'none':'';$('fan').value=tOut(c.fan);$('sdc').value=c.sdc?tOut(c.sdc):0;document.querySelectorAll('.tu').forEach(x=>x.textContent=UC()?'°C':'°F')}
 let CUST=[],PL=[];
 function custUi(){const n=+$('cn').value;$('custc').innerHTML=CUST.slice(0,n).map((h,i)=>`<input type="color" value="#${h}" style="width:64px;height:44px;padding:2px" oninput="CUST[${i}]=this.value.slice(1)">`).join('')}
-function plUi(){$('pl').innerHTML=PL.map((e,i)=>`<div class="row" style="margin-bottom:6px"><select style="flex:2" onchange="PL[${i}][0]=+this.value">${FX.slice(1).map((n,j)=>`<option value="${j+1}"${j+1==e[0]?' selected':''}>${n}</option>`).join('')}</select>
+function plUi(){$('pl').innerHTML=PL.map((e,i)=>`<div class="row" style="margin-bottom:6px"><select style="flex:2" onchange="PL[${i}][0]=+this.value">${itemOpts(e[0])}</select>
 <input type="number" min="1" max="240" value="${e[1]}" style="flex:1" onchange="PL[${i}][1]=+this.value"><span class="mut">min</span><button onclick="PL.splice(${i},1);plUi()">✕</button></div>`).join('')||'<p class="mut">No effects yet.</p>'}
 function plAdd(){if(PL.length>=8){toast('Up to 8 effects');return}PL.push([1,10]);plUi()}
 function schUi(){const s=$('osun').value=='1';$('w_onoff').style.display=s?'':'none';$('w_onm').style.display=s?'none':''}
@@ -207,10 +268,15 @@ function saveOut(){post({ptype:$('ptype').value,skhz:$('skhz').value,dmx1:$('dmx
 function saveSafe(){const sd=+$('sdc').value;post({pla:$('pla').value,mapc:$('mapc').value,fan:tIn(+$('fan').value),sdc:sd?tIn(sd):0},'Safety settings saved ✓')}
 const UC=()=>C&&C.unit==1,tOut=c=>UC()?c:Math.round(c*9/5+32),tIn=v=>UC()?v:Math.round((v-32)*5/9),tTxt=c=>tOut(c)+(UC()?' °C':' °F');
 async function syncTime(){try{await api('/api/time','utc='+Math.floor(Date.now()/1000));toast('Clock set ✓');status()}catch(e){toast(e.message)}}
-function fxbtns(){$('fxb').innerHTML=FX.map((n,i)=>`<button class="${C.fx==i?'pri':''}" onclick="fxset(${i})">${n}</button>`).join('');
+function itemOpts(v){return FX.slice(1).map((n,j)=>`<option value="${j+1}"${j+1==v?' selected':''}>${n}</option>`).join('')+(C.presets||[]).map((p,j)=>p?`<option value="${100+j}"${100+j==v?' selected':''}>★ ${p.name}</option>`:'').join('')}
+function fxbtns(){const b=(a,z)=>FX.map((n,i)=>i>=a&&i<=z?`<button class="${C.fx==i?'pri':''}" onclick="fxset(${i})">${n}</button>`:'').join('');
+$('fxb1').innerHTML=`<button class="${C.fx==0?'pri':''}" onclick="fxset(0)">Off</button>`+b(1,9);$('fxb2').innerHTML=b(10,39);$('fxb3').innerHTML=b(40,42);
+$('pal').innerHTML=PALS.map((n,i)=>`<option value="${i}"${i==C.pal?' selected':''}>${n}</option>`).join('');$('sol').value='#'+(C.sol||'ffa050');
+$('inten').value=C.inten;$('inv').textContent=C.inten;$('trans').value=(C.trans||0)/10;$('gfx').checked=!!C.gfx;$('gdata').checked=!!C.gdata;
+presetUi();calUi();segUi();
 $('fxs').value=C.fxs;$('fxsv').textContent=C.fxs;$('fxbr').value=C.fxb;$('fxbv').textContent=C.fxb}
-async function fxset(i){const p=new URLSearchParams({fx:i===undefined?C.fx:i,fxs:$('fxs').value,fxb:$('fxbr').value});
-try{const c=await api('/api/config',p.toString());C.fx=c.fx;C.fxs=c.fxs;C.fxb=c.fxb;fxbtns();toast(i===undefined?'Saved ✓':FX[C.fx]+' ✓');status()}catch(e){toast('Failed: '+e.message)}}
+async function fxset(i){const p=new URLSearchParams({fx:i===undefined?C.fx:i,fxs:$('fxs').value,fxb:$('fxbr').value,pal:$('pal').value,sol:$('sol').value.slice(1),inten:$('inten').value,trans:Math.round(+$('trans').value*10),gfx:$('gfx').checked?1:0,gdata:$('gdata').checked?1:0});if(i!==undefined)p.set('pwr',1);
+try{const c=await api('/api/config',p.toString());Object.assign(C,c);fxbtns();toast(i===undefined?'Saved ✓':FX[C.fx]+' ✓');status()}catch(e){toast('Failed: '+e.message)}}
 function load(){return api('/api/config').then(c=>{C=c;fxbtns();fillExtra(c);$('cn').onchange=custUi;$('ptype').onchange=()=>$('w_skhz').style.display=$('ptype').value=='0'?'none':'';$('osun').onchange=schUi;['name','ip','mask','gw','usz'].forEach(k=>$(k).value=c[k]);$('dhcp').value=c.dhcp;$('hold').value=c.hold;$('unit').value=c.unit||0;
 $('qo').innerHTML=ORD.map((o,i)=>`<option value="${i}"${i==2?' selected':''}>${o}</option>`).join('');rows()})}
 async function save(){grab();const p=new URLSearchParams();['name','ip','mask','gw','usz','dhcp','hold','unit'].forEach(k=>p.set(k,$(k).value));

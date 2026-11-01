@@ -96,7 +96,6 @@ RAMFUNC __attribute__((noreturn)) static void r_install(uint32_t len) {
     r_erase(4); r_kick();
     if (len > 64u * 1024u)  { r_erase(5); r_kick(); }
     if (len > 192u * 1024u) { r_erase(6); r_kick(); }
-    if (len > 320u * 1024u) { r_erase(7); r_kick(); }
     if (r_copy(len)) break;
   }
   FLASH->CR |= FLASH_CR_LOCK;

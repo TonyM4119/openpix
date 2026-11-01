@@ -17,6 +17,8 @@
 #include "web_index.h"
 #include "sensors.h"
 #include "wled.h"
+#include "looks.h"
+#include "audio.h"
 #include "schedule.h"
 #include "lwip/tcp.h"
 #include <string.h>
@@ -27,7 +29,7 @@
 #define MAX_CONN 3
 #define HDR_MAX  1536
 #define BODY_MAX 4096
-#define OUT_MAX  4096
+#define OUT_MAX  10240
 
 typedef struct {
   struct tcp_pcb *pcb;
@@ -120,7 +122,7 @@ static int build_status(char *buf, int max) {
      g_power_scale < 256, g_fan_on, g_overtemp);
   for (int p = 0; p < 3; p++)
     AP("%s{\"ok\":%u,\"v\":%u,\"t\":%d}", p ? "," : "", g_sensors[p].ok, g_sensors[p].volt10, g_sensors[p].temp_c);
-  AP("],\"time\":%d", sched_time_valid());
+  AP("],\"sleep\":%lu,\"audio\":%d,\"time\":%d", (unsigned long)sleep_remaining_s(), audio_active(), sched_time_valid());
   if (sched_time_valid()) {
     int32_t loc = sched_local();
     AP(",\"clock\":\"%02ld:%02ld\",\"sunset\":\"%02d:%02d\"", (long)((loc % 86400) / 3600), (long)((loc % 3600) / 60),
@@ -138,6 +140,23 @@ static int build_config(char *buf, int max) {
      cfg.dhcp, cfg.ip[0], cfg.ip[1], cfg.ip[2], cfg.ip[3], cfg.mask[0], cfg.mask[1], cfg.mask[2],
      cfg.mask[3], cfg.gw[0], cfg.gw[1], cfg.gw[2], cfg.gw[3]);
   AP(",\"fx\":%u,\"fxs\":%u,\"fxb\":%u", cfg.fx, cfg.fx_speed, cfg.fx_bright);
+  AP(",\"pal\":%u,\"inten\":%u,\"gfx\":%u,\"gdata\":%u,\"trans\":%u,\"calon\":%u,\"cal\":[",
+     ex.pal, ex.intensity, ex.gamma_fx, ex.gamma_data, ex.transition_ds, ex.cal_on);
+  for (int i = 0; i < MAX_CAL; i++) { cal_t *c = &ex.cal[i]; AP("%s[%u,%u,%u,%u,%u]", i ? "," : "", c->m1, c->d1, c->m2, c->d2, c->item); }
+  AP("],\"presets\":[");
+  for (int i = 0; i < MAX_PRESETS; i++) {
+    preset_t *q = &ex.presets[i];
+    AP("%s", i ? "," : "");
+    if (q->used) { AP("{\"name\":"); json_str(&w, end, q->name); AP(",\"fx\":%u,\"pal\":%u}", q->fx, q->pal); }
+    else AP("null");
+  }
+  AP("],\"segs\":[");
+  for (int i = 0; i < MAX_SEGS; i++) { seg_t *g = &ex.segs[i]; AP("%s[%u,%u,%u,%u,%u]", i ? "," : "", g->out, g->start, g->count, g->fx, g->pal); }
+  AP("],\"alexa\":%u,\"aname\":", ex.alexa_on); json_str(&w, end, ex.alexa_name);
+  AP(",\"ssend\":%u,\"srecv\":%u,\"aud\":%u,\"mqon\":%u,\"mqip\":\"%u.%u.%u.%u\",\"mqport\":%u,\"mquser\":",
+     ex.sync_send, ex.sync_recv, ex.audio_on, ex.mqtt_on, ex.mqtt_ip[0], ex.mqtt_ip[1], ex.mqtt_ip[2], ex.mqtt_ip[3], ex.mqtt_port);
+  json_str(&w, end, ex.mqtt_user);
+  AP(",\"mqpass\":\"%s\",\"mqtopic\":", ex.mqtt_pass[0] ? "********" : ""); json_str(&w, end, ex.mqtt_topic);
   AP(",\"unit\":%u", cfg.units_c);
   AP(",\"pwr\":%d,\"sol\":\"%02x%02x%02x\"", !cfg.power_off, cfg.solid_rgb[0], cfg.solid_rgb[1], cfg.solid_rgb[2]);
   AP(",\"pla\":%u,\"mapc\":%u,\"fan\":%u,\"sdc\":%u", cfg.power_limit_a, cfg.ma_per_ch, cfg.fan_on_c, cfg.shutdown_c);
@@ -163,7 +182,7 @@ static int build_config(char *buf, int max) {
 
 static int apply_config_form(char *body) {
   char *p = body, *k, *v;
-  int net_changed = 0;
+  int net_changed = 0, ex_changed = 0;
   uint8_t ip[4];
   while (next_kv(&p, &k, &v)) {
     long n = strtol(v, 0, 10);
@@ -177,6 +196,44 @@ static int apply_config_form(char *body) {
     else if (!strcmp(k, "fx"))   { if (n >= 0 && n < FX_COUNT) cfg.fx = n; }
     else if (!strcmp(k, "fxs"))  { if (n >= 1 && n <= 10) cfg.fx_speed = n; }
     else if (!strcmp(k, "fxb"))  { if (n >= 1 && n <= 100) cfg.fx_bright = n; }
+    else if (!strcmp(k, "pal"))   { if (n >= 0 && n < PAL_COUNT) { ex.pal = n; ex_changed = 1; } }
+    else if (!strcmp(k, "inten")) { if (n >= 0 && n <= 255) { ex.intensity = n; ex_changed = 1; } }
+    else if (!strcmp(k, "gfx"))   { ex.gamma_fx = n ? 1 : 0; ex_changed = 1; }
+    else if (!strcmp(k, "gdata")) { ex.gamma_data = n ? 1 : 0; ex_changed = 1; }
+    else if (!strcmp(k, "trans")) { if (n >= 0 && n <= 100) { ex.transition_ds = n; ex_changed = 1; } }
+    else if (!strcmp(k, "calon")) { ex.cal_on = n ? 1 : 0; ex_changed = 1; }
+    else if (k[0] == 'c' && k[1] == 'a' && k[2] == 'l' && k[3] >= '0' && k[3] <= '9') {   // cal0..cal9 = m1-d1-m2-d2-item
+      int i = atoi(k + 3), a[5] = {0};
+      if (i >= 0 && i < MAX_CAL && sscanf(v, "%d-%d-%d-%d-%d", &a[0], &a[1], &a[2], &a[3], &a[4]) == 5) {
+        cal_t *c = &ex.cal[i];
+        int ok = a[0] >= 1 && a[0] <= 12 && a[2] >= 1 && a[2] <= 12 && a[1] >= 1 && a[1] <= 31 && a[3] >= 1 && a[3] <= 31;
+        if (ok && a[4] > 0) { c->m1 = a[0]; c->d1 = a[1]; c->m2 = a[2]; c->d2 = a[3]; c->item = a[4]; }
+        else memset(c, 0, sizeof(*c));
+        ex_changed = 1;
+      }
+    }
+    else if (k[0] == 's' && k[1] == 'e' && k[2] == 'g' && k[3] >= '0' && k[3] <= '9') {   // seg0..seg15 = out,start,count,fx,pal
+      int i = atoi(k + 3), a[5] = {0};
+      if (i >= 0 && i < MAX_SEGS) {
+        seg_t *g = &ex.segs[i];
+        if (sscanf(v, "%d,%d,%d,%d,%d", &a[0], &a[1], &a[2], &a[3], &a[4]) == 5 && a[0] >= 1 && a[0] <= NUM_OUT &&
+            a[1] >= 0 && a[2] > 0 && a[1] + a[2] <= MAX_PIX && a[3] >= 0 && (a[3] < FX_COUNT || a[3] == ZONE_DARK) && a[4] >= 0 && a[4] < PAL_COUNT) {
+          g->out = a[0]; g->start = a[1]; g->count = a[2]; g->fx = a[3]; g->pal = a[4];
+        } else memset(g, 0, sizeof(*g));
+        ex_changed = 1;
+      }
+    }
+    else if (!strcmp(k, "alexa"))  { ex.alexa_on = n ? 1 : 0; ex_changed = 1; }
+    else if (!strcmp(k, "aname"))  { strncpy(ex.alexa_name, v, sizeof(ex.alexa_name) - 1); ex_changed = 1; }
+    else if (!strcmp(k, "ssend"))  { ex.sync_send = n ? 1 : 0; ex_changed = 1; }
+    else if (!strcmp(k, "srecv"))  { ex.sync_recv = n ? 1 : 0; ex_changed = 1; }
+    else if (!strcmp(k, "aud"))    { ex.audio_on = n ? 1 : 0; ex_changed = 1; }
+    else if (!strcmp(k, "mqon"))   { ex.mqtt_on = n ? 1 : 0; ex_changed = 1; }
+    else if (!strcmp(k, "mqip"))   { if (parse_ip(v, ip)) { memcpy(ex.mqtt_ip, ip, 4); ex_changed = 1; } }
+    else if (!strcmp(k, "mqport")) { if (n > 0 && n < 65536) { ex.mqtt_port = n; ex_changed = 1; } }
+    else if (!strcmp(k, "mquser")) { strncpy(ex.mqtt_user, v, sizeof(ex.mqtt_user) - 1); ex_changed = 1; }
+    else if (!strcmp(k, "mqpass")) { if (strcmp(v, "********")) { strncpy(ex.mqtt_pass, v, sizeof(ex.mqtt_pass) - 1); ex_changed = 1; } }
+    else if (!strcmp(k, "mqtopic")){ if (*v) { strncpy(ex.mqtt_topic, v, sizeof(ex.mqtt_topic) - 1); ex_changed = 1; } }
     else if (!strcmp(k, "unit")) { cfg.units_c = n ? 1 : 0; }
     else if (!strcmp(k, "pwr"))  { cfg.power_off = n ? 0 : 1; }
     else if (!strcmp(k, "sol"))  { unsigned long x = strtoul(v[0] == '#' ? v + 1 : v, 0, 16);
@@ -199,7 +256,7 @@ static int apply_config_form(char *body) {
     else if (!strcmp(k, "pln"))  { if (n >= 0 && n <= MAX_PLAYLIST) cfg.pl_count = n; }
     else if (k[0] == 'p' && (k[1] == 'f' || k[1] == 'm') && k[2] >= '1' && k[2] <= '8' && !k[3]) {
       int i = k[2] - '1';
-      if (k[1] == 'f') { if (n >= 1 && n < FX_COUNT) cfg.pl_fx[i] = n; }
+      if (k[1] == 'f') { if ((n >= 1 && n < FX_COUNT) || (n >= ITEM_PRESET && n < ITEM_PRESET + MAX_PRESETS)) cfg.pl_fx[i] = n; }
       else if (n >= 1 && n <= 240) cfg.pl_minutes[i] = n;
     }
     else if (!strcmp(k, "cm"))   { if (n >= 0 && n < CUST_COUNT) cfg.cust_mode = n; }
@@ -245,6 +302,7 @@ static int apply_config_form(char *body) {
   cfg.test_mode = 0;              // test patterns are never saved
   int ok = config_save();
   cfg.test_mode = saved_test;
+  if (ex_changed && !looks_save()) ok = 0;
   if (net_changed) net_apply_later(800);
   return ok;
 }
@@ -343,6 +401,20 @@ static void handle_request(conn_t *c) {
       respond_json(c, build_status(c->out, sizeof(c->out)));
     } else if (!strcmp(c->path, "/api/config")) {
       respond_json(c, build_config(c->out, sizeof(c->out)));
+    } else if (!strcmp(c->path, "/api/live")) {
+      // live preview: active outputs, PREVIEW_N samples each, as hex
+      char *w = c->out, *end = c->out + sizeof(c->out);
+      AP("{\"n\":%d,\"o\":[", PREVIEW_N);
+      int first = 1;
+      for (int i = 0; i < NUM_OUT; i++) {
+        if (!cfg.out[i].pixels) continue;
+        if (end - w < PREVIEW_N * 6 + 16) break;
+        AP("%s[%d,\"", first ? "" : ",", i + 1); first = 0;
+        for (int j = 0; j < PREVIEW_N; j++) AP("%02x%02x%02x", g_preview[i][j][0], g_preview[i][j][1], g_preview[i][j][2]);
+        AP("\"]");
+      }
+      AP("]}");
+      respond_json(c, w - c->out);
     } else {
       int n = wled_get(c->path, c->out, sizeof(c->out));
       if (n >= 0) respond_json(c, n);
@@ -363,6 +435,24 @@ static void handle_request(conn_t *c) {
       wled_post_state(c->body);
       if (strstr(c->body, "\"v\":true")) respond_json(c, wled_get("/json/state", c->out, sizeof(c->out)));
       else { int n = snprintf(c->out, sizeof(c->out), "{\"success\":true}"); respond_json(c, n); }
+    } else if (!strcmp(c->path, "/api/preset")) {
+      char *p = c->body, *k, *v, act[8] = "", name[16] = "";
+      int idx = -1;
+      while (next_kv(&p, &k, &v)) {
+        if (!strcmp(k, "act")) strncpy(act, v, sizeof(act) - 1);
+        else if (!strcmp(k, "i")) idx = atoi(v);
+        else if (!strcmp(k, "name")) strncpy(name, v, sizeof(name) - 1);
+      }
+      int ok = 0;
+      if (!strcmp(act, "save")) ok = looks_store_preset(idx, name);
+      else if (!strcmp(act, "apply")) { ok = looks_apply_preset(idx); pixels_config_changed(); }
+      else if (!strcmp(act, "del") && idx >= 0 && idx < MAX_PRESETS) { memset(&ex.presets[idx], 0, sizeof(preset_t)); ok = looks_save(); }
+      if (ok) respond_json(c, build_config(c->out, sizeof(c->out)));
+      else respond_text(c, "400 Bad", "Preset action failed");
+    } else if (!strcmp(c->path, "/api/sleep")) {
+      char *p = c->body, *k, *v;
+      while (next_kv(&p, &k, &v)) if (!strcmp(k, "min")) { int m = atoi(v); if (m > 0 && m <= 480) { cfg.power_off = 0; sleep_start(m); } else sleep_cancel(); }
+      respond_json(c, build_status(c->out, sizeof(c->out)));
     } else if (!strcmp(c->path, "/api/time")) {
       char *p = c->body, *k, *v;
       while (next_kv(&p, &k, &v)) if (!strcmp(k, "utc")) { unsigned long u = strtoul(v, 0, 10); if (u > 1700000000UL) sched_set_time(u); }

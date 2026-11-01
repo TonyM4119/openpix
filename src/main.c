@@ -37,7 +37,10 @@ static void ui_task(void) {
     for (int i = 0; i < NUM_OUT; i++) if (cfg.out[i].pixels) { n++; px += cfg.out[i].pixels; }
     snprintf(l, sizeof l, "%d outputs %lu px", n, (unsigned long)px); oled_text(3, l);
     uint32_t last = pixels_last_data_ms();
+    static const char *fxn[FX_COUNT] = {"", "Christmas", "Candy cane", "Multicolor", "Halloween",
+                                        "4th of July", "Twinkle", "Rainbow"};
     if (cfg.test_mode) snprintf(l, sizeof l, "TEST MODE %d", cfg.test_mode);
+    else if (pixels_fx_active()) snprintf(l, sizeof l, "FX: %s", fxn[cfg.fx]);
     else if (!last) snprintf(l, sizeof l, "Waiting for data");
     else if (now - last < 2000) snprintf(l, sizeof l, "LIVE  %lu fps", (unsigned long)pixels_fps());
     else snprintf(l, sizeof l, "No data %lus", (unsigned long)((now - last) / 1000));

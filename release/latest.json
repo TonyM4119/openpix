@@ -1,7 +1,7 @@
 {
- "version": "0.3.0",
- "file": "openpix-0.3.0.bin",
- "size": 69632,
- "crc32": 2034825187,
- "notes": "Holiday effects (Christmas, Candy cane, Multicolor, Halloween, 4th of July, Twinkle, Rainbow), Check for updates button, home-screen app icon."
+ "version": "0.3.1",
+ "file": "openpix-0.3.1.bin",
+ "size": 70656,
+ "crc32": 4194260083,
+ "notes": "Screen now shows which holiday effect is playing. (First over-the-air update test.)"
 }

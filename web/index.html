@@ -59,7 +59,7 @@ body.light #toast{background:#fff;color:var(--txt)}
 </div>
 <div class="row" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center;color:var(--txt)"><input type="checkbox" id="gfx" onchange="fxset()"> Gamma-correct effects (more natural colors)</label>
 <label style="display:flex;gap:8px;align-items:center;color:var(--txt)"><input type="checkbox" id="gdata" onchange="fxset()"> Gamma-correct xLights data</label></div>
-<div class="mut" style="margin-top:12px">Live preview</div><canvas id="live" style="width:100%;height:auto;background:#000;border-radius:8px;image-rendering:pixelated"></canvas>
+<div class="mut" style="margin-top:12px">Live preview</div><canvas id="live" style="width:100%;background:#07090c;border-radius:10px;display:block"></canvas>
 </div>
 
 <div class="card"><h2>Presets</h2>
@@ -267,9 +267,14 @@ $('segs').innerHTML=SEGS.map((g,i)=>`<div class="row" style="margin-bottom:6px">
 function segAdd(){if(SEGS.length>=16){toast('Up to 16 segments');return}SEGS.push([1,0,50,17,0]);segUi()}
 function saveSegs(){const o={};for(let i=0;i<16;i++){const g=SEGS[i];o['seg'+i]=g?g.join(','):'0'}post(o,'Segments saved ✓').then(()=>{SEGS=[];segUi()})}
 async function sleepT(m){try{await api('/api/sleep','min='+m);toast(m?'Sleep timer: '+m+' min':'Sleep timer off');status()}catch(e){toast(e.message)}}
-async function live(){try{const d=await api('/api/live');const cv=$('live'),n=d.n,rows=d.o.length||1;cv.width=n;cv.height=rows;const x=cv.getContext('2d');const im=x.createImageData(n,rows);
-d.o.forEach((o,r)=>{for(let j=0;j<n;j++){const h=o[1].substr(j*6,6),q=(r*n+j)*4;im.data[q]=parseInt(h.substr(0,2),16);im.data[q+1]=parseInt(h.substr(2,2),16);im.data[q+2]=parseInt(h.substr(4,2),16);im.data[q+3]=255}});
-x.putImageData(im,0,0);cv.style.height=Math.min(rows*14,300)+'px'}catch(e){}}
+async function live(){try{const d=await api('/api/live');const cv=$('live'),rows=d.o.length;if(!rows)return;
+const dpr=window.devicePixelRatio||1,W=cv.clientWidth,lab=26,n=d.n,gap=(W-lab-8)/n,rad=Math.max(2,Math.min(gap*0.36,7)),rh=Math.max(rad*2+6,14),H=rows*rh+8;
+cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';const x=cv.getContext('2d');x.scale(dpr,dpr);x.clearRect(0,0,W,H);
+x.font='11px system-ui';x.textBaseline='middle';x.textAlign='right';
+d.o.forEach((o,r)=>{const y=4+r*rh+rh/2;x.fillStyle='#6b7785';x.fillText(o[0],lab-6,y);const m=o[1].length/6;
+for(let j=0;j<m;j++){const h=o[1].substr(j*6,6),R=parseInt(h.substr(0,2),16),G=parseInt(h.substr(2,2),16),B=parseInt(h.substr(4,2),16),cx=lab+gap*j+gap/2;
+const lit=R+G+B>12;if(lit){x.shadowColor=`rgb(${R},${G},${B})`;x.shadowBlur=rad*1.6}else x.shadowBlur=0;
+x.fillStyle=lit?`rgb(${Math.min(255,R+20)},${Math.min(255,G+20)},${Math.min(255,B+20)})`:'#1a2028';x.beginPath();x.arc(cx,y,rad,0,7);x.fill()}x.shadowBlur=0})}catch(e){}}
 setInterval(()=>{if(!document.hidden)live()},700);
 
 function fillExtra(c){

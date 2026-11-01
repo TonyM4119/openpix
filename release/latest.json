@@ -1,7 +1,7 @@
 {
- "version": "0.8.2",
- "file": "openpix-0.8.2.bin",
- "size": 141312,
- "crc32": 4014430270,
- "notes": "Tidier layout (aligned boxes, Advanced section for Alexa/MQTT), state names fixed, fan default 100 F."
+ "version": "0.8.3",
+ "file": "openpix-0.8.3.bin",
+ "size": 142336,
+ "crc32": 503019989,
+ "notes": "Live preview redrawn as glowing bulbs per output, sampling fixed so patterns show correctly."
 }

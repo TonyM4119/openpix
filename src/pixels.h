@@ -15,7 +15,7 @@ int pixels_fx_active(void);
 uint32_t pixels_frames(void);
 uint32_t pixels_last_data_ms(void);
 extern uint32_t g_frame_ms;
-#define PREVIEW_N 32
+#define PREVIEW_N 48
 extern uint8_t g_preview[NUM_OUT][PREVIEW_N][3];   // last frame, sampled, for the live preview
 extern uint32_t g_power_ma, g_power_scale;
 int fx_current(void);       // effect playing now (playlist aware)

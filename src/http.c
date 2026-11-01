@@ -411,8 +411,9 @@ static void handle_request(conn_t *c) {
       for (int i = 0; i < NUM_OUT; i++) {
         if (!cfg.out[i].pixels) continue;
         if (end - w < PREVIEW_N * 6 + 16) break;
+        int pc = cfg.out[i].pixels < PREVIEW_N ? cfg.out[i].pixels : PREVIEW_N;
         AP("%s[%d,\"", first ? "" : ",", i + 1); first = 0;
-        for (int j = 0; j < PREVIEW_N; j++) AP("%02x%02x%02x", g_preview[i][j][0], g_preview[i][j][1], g_preview[i][j][2]);
+        for (int j = 0; j < pc; j++) AP("%02x%02x%02x", g_preview[i][j][0], g_preview[i][j][1], g_preview[i][j][2]);
         AP("\"]");
       }
       AP("]}");

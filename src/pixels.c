@@ -229,7 +229,7 @@ static void build_and_send(void) {
     uint32_t total = o->pixels + o->nulls;
     if (total > MAX_PIX) total = MAX_PIX;
     uint32_t sc = (uint32_t)o->bright * g_power_scale * sleep_scale256() / 256;   // /25600
-    uint32_t pstep = o->pixels / PREVIEW_N + 1;
+    uint32_t pcount = o->pixels < PREVIEW_N ? o->pixels : PREVIEW_N;
     for (uint32_t p = o->nulls; p < total; p++) {
       uint32_t k = p - o->nulls;
       if (o->reverse) k = o->pixels - 1 - k;
@@ -241,7 +241,10 @@ static void build_and_send(void) {
       uint8_t r, g, b;
       get_rgb(i, k, &r, &g, &b);
       if (sc < 25600) { r = r * sc / 25600; g = g * sc / 25600; b = b * sc / 25600; }
-      if (k % pstep == 0 && k / pstep < PREVIEW_N) { uint8_t *pv = g_preview[i][k / pstep]; pv[0] = r; pv[1] = g; pv[2] = b; }
+      if (pcount) {   // one pixel per preview bucket, at a staggered spot so repeating patterns don't alias
+        uint32_t bk = k * pcount / o->pixels, b0 = bk * o->pixels / pcount, b1 = (bk + 1) * o->pixels / pcount;
+        if (k == b0 + (bk * 7 + 3) % (b1 - b0 ? b1 - b0 : 1)) { uint8_t *pv = g_preview[i][bk]; pv[0] = r; pv[1] = g; pv[2] = b; }
+      }
       uint8_t c[3];
       switch (o->order) {
         case ORD_RGB: c[0] = r; c[1] = g; c[2] = b; break;

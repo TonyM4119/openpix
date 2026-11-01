@@ -1,2 +1,6 @@
 build/
 deps/
+app/.gradle/
+app/lights/build/
+app/build/
+*.jks

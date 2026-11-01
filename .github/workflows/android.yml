@@ -1,0 +1,53 @@
+name: Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/openpix.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/openpix.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::KEYSTORE_B64 secret not set - building with a throwaway debug key"
+          fi
+
+      - name: Build APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+        run: gradle -p app :lights:assembleRelease --no-daemon
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/lights/build/outputs/apk/release/lights-release.apk Lights.apk
+          gh release create "app-1.0.${{ github.run_number }}" Lights.apk \
+            --title "Lights app 1.0.${{ github.run_number }}" \
+            --notes "Android app for OpenPix controllers. Download Lights.apk on your phone and open it to install." \
+            --latest

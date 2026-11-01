@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lights</title>
+<style>
+:root{--bg:#0f1216;--card:#181d23;--line:#29313a;--txt:#e6e9ee;--mut:#8b96a3;--acc:#4fb3ff;--ok:#3ccf7a;--bad:#ff5c5c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.4 system-ui,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:10px;padding:16px;position:sticky;top:0;background:var(--bg);z-index:3;border-bottom:1px solid var(--line)}
+header b{font-size:20px}#dot{width:11px;height:11px;border-radius:50%;background:var(--mut)}#dot.ok{background:var(--ok)}
+#who{margin-left:auto;color:var(--mut);font-size:13px;text-align:right}
+main{padding:12px;max-width:640px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+h2{font-size:13px;margin:0 0 10px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em}
+.now{font-size:22px;font-weight:600}.mut{color:var(--mut);font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:#11161b;border:2px solid #222b34;border-radius:14px;padding:16px 10px;text-align:center;font-weight:600;user-select:none}
+.tile i{display:block;font-style:normal;font-size:34px;line-height:1.2;margin-bottom:4px}
+.tile.sel{border-color:var(--acc);background:#132331}
+.tile:active{transform:scale(.97)}
+.pw{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{background:#25303b;color:var(--txt);border:1px solid #33404d;border-radius:12px;padding:12px 14px;font:inherit;font-weight:600}
+button.pri{background:var(--acc);border-color:var(--acc);color:#04121d}button.off{background:#2b1a1a;border-color:#4a2626}
+button:active{transform:scale(.98)}
+input[type=range]{width:100%;accent-color:var(--acc);height:32px}
+input[type=text]{width:100%;background:#0f1419;color:var(--txt);border:1px solid #33404d;border-radius:10px;padding:12px;font:inherit}
+label{display:flex;justify-content:space-between;color:var(--mut);font-size:14px;margin-top:6px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{display:inline-block;padding:4px 10px;border-radius:20px;background:#11161b;margin:3px 4px 0 0;font-size:13px}
+.list button{width:100%;text-align:left;margin-top:8px}
+progress{width:100%;height:14px;margin-top:8px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222b34;border:1px solid var(--line);padding:12px 18px;border-radius:12px;opacity:0;transition:.3s;pointer-events:none;z-index:9}
+#toast.on{opacity:1}.hide{display:none}
+</style></head><body>
+<header><div id="dot"></div><b>Lights</b><div id="who">not connected</div></header>
+<main>
+
+<div id="setup" class="card hide"><h2>Find your controller</h2>
+<p class="mut">Make sure this phone is on the same Wi-Fi as the controller.</p>
+<button class="pri" onclick="scan()" style="width:100%">Search Wi-Fi</button>
+<div id="found" class="list"></div>
+<p class="mut" style="margin-top:14px">Or type its IP address:</p>
+<div class="row"><input type="text" id="manual" placeholder="10.0.0.80" inputmode="decimal" style="flex:1"><button onclick="useIp($('manual').value.trim())">Connect</button></div>
+</div>
+
+<div id="mainui" class="hide">
+<div class="card"><h2>Now playing</h2><div class="now" id="now">…</div><div class="mut" id="nowsub"></div>
+<div class="pw" style="margin-top:12px"><button class="pri" onclick="lightsOn()">Lights on</button><button class="off" onclick="lightsOff()">Lights off</button></div></div>
+
+<div class="card"><h2>Holiday effects</h2><div class="grid" id="fx"></div>
+<label>Brightness <span id="bv"></span></label><input type="range" id="br" min="5" max="100" step="5" oninput="$('bv').textContent=this.value+'%'" onchange="setFx()">
+<label>Speed <span id="sv"></span></label><input type="range" id="sp" min="1" max="10" oninput="$('sv').textContent=this.value" onchange="setFx()">
+</div>
+
+<div class="card"><h2>Test lights</h2><div class="row">
+<button onclick="test(1,255,0,0)">Red</button><button onclick="test(1,0,255,0)">Green</button><button onclick="test(1,0,0,255)">Blue</button>
+<button onclick="test(1,255,255,255)">White</button><button onclick="test(4)">Identify</button><button onclick="test(0)">Stop test</button></div>
+<p class="mut">Identify: output N lights its first N pixels white.</p></div>
+
+<div class="card"><h2>Controller</h2><div id="info"></div>
+<div class="row" style="margin-top:10px"><button class="pri" onclick="checkUpd(1)">Check for firmware updates</button></div>
+<div id="upd" class="mut" style="margin-top:8px"></div><progress id="pg" class="hide" value="0" max="100"></progress>
+<div class="row" style="margin-top:10px"><button onclick="Native.openUrl('http://'+IP+'/')">All settings (web page)</button><button onclick="forget()">Switch controller</button></div>
+</div>
+</div>
+</main><div id="toast"></div>
+<script>
+const $=i=>document.getElementById(i);
+const FX=[['🎄','Christmas'],['🍬','Candy cane'],['💡','Multicolor'],['🎃','Halloween'],['🎆','4th of July'],['✨','Warm twinkle'],['🌈','Rainbow']];
+const REL='https://raw.githubusercontent.com/TonyM4119/openpix/main/release/';
+let IP='',S=null,C=null,cbs={},seq=0,UPD=null;
+// --- native bridge (falls back to fetch when previewed in a browser) ---
+if(!window.Native){window.Native={_p:{},getPref:k=>localStorage.getItem(k)||'',setPref:(k,v)=>localStorage.setItem(k,v),openUrl:u=>open(u),
+ http:(id,m,u,b,t)=>fetch(u,m=='POST'?{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b}:{}).then(async r=>__cb(id,r.status,await r.text())).catch(e=>__cb(id,0,String(e))),
+ scan:id=>setTimeout(()=>__cb(id,200,'0'),500),installFirmware:(id)=>__cb(id,0,'Only available in the app')}}
+function __cb(id,st,txt){const f=cbs[id];delete cbs[id];if(f)f(st,txt)}
+function __found(host,json){try{addFound(host,JSON.parse(json))}catch(e){}}
+function __prog(id,msg,p){$('upd').textContent=msg;$('pg').classList.remove('hide');$('pg').value=p}
+function req(m,path,body,t){return new Promise((ok,no)=>{const id='r'+(++seq);cbs[id]=(st,txt)=>{if(st>=200&&st<300){try{ok(JSON.parse(txt))}catch(e){ok(txt)}}else no(new Error(st?('HTTP '+st+' '+txt):txt||'no response'))};
+ Native.http(id,m,path.startsWith('http')?path:'http://'+IP+path,body||'',t||4000)})}
+const get=p=>req('GET',p),post=(p,o)=>req('POST',p,new URLSearchParams(o).toString());
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2200)}
+// --- setup ---
+function showSetup(){$('setup').classList.remove('hide');$('mainui').classList.add('hide');$('who').textContent='not connected';$('dot').className=''}
+function addFound(host,s){const b=document.createElement('button');b.innerHTML=`<b>${s.name}</b><br><span class="mut">${host} · ${s.fw}</span>`;b.onclick=()=>useIp(host);$('found').appendChild(b)}
+function scan(){$('found').innerHTML='<p class="mut">Searching… (about 10 seconds)</p>';const id='s'+(++seq);
+ cbs[id]=(st,n)=>{const p=$('found').querySelector('p');if(p)p.textContent=n=='0'?'No controller found. Try typing the IP.':'Tap your controller:'};Native.scan(id)}
+async function useIp(ip){if(!ip)return;try{const s=await req('GET','http://'+ip+'/api/status',null,3000);if(!String(s.fw).startsWith('OpenPix'))throw 0;
+ IP=ip;Native.setPref('ip',ip);start()}catch(e){toast('No OpenPix controller at '+ip)}}
+function forget(){Native.setPref('ip','');IP='';showSetup()}
+// --- main ---
+function tiles(){$('fx').innerHTML=FX.map((f,i)=>`<div class="tile${C&&C.fx==i+1&&!(S&&S.test)?' sel':''}" onclick="pick(${i+1})"><i>${f[0]}</i>${f[1]}</div>`).join('')}
+async function loadCfg(){C=await get('/api/config');$('br').value=C.fxb;$('bv').textContent=C.fxb+'%';$('sp').value=C.fxs;$('sv').textContent=C.fxs;tiles()}
+async function refresh(){try{S=await get('/api/status');$('dot').className='ok';$('who').innerHTML=S.name+'<br>'+IP;
+ const live=S.age>=0&&S.age<2000;let now,sub='';
+ if(S.test){now=S.test==1?'Test / off':'Test pattern';sub='Tap Lights on or Stop test to go back'}
+ else if(live){now='Live show';sub='Receiving from xLights/FPP ('+S.fps+' fps)'}
+ else if(S.fxon){now=FX[S.fx-1][0]+' '+FX[S.fx-1][1];sub='Built-in effect'}
+ else{now='Off';sub='Waiting for show data'}
+ $('now').textContent=now;$('nowsub').textContent=sub;
+ $('info').innerHTML=['Firmware '+S.fw.replace('OpenPix ',''),'IP '+S.ip,'Up '+fmt(S.up),'ID '+S.id].map(x=>`<span class="chip">${x}</span>`).join('');
+ if(C)tiles()}catch(e){$('dot').className='';$('now').textContent='Controller not reachable';$('nowsub').textContent=IP+' · check power and Wi-Fi'}}
+function fmt(t){const d=Math.floor(t/86400),h=Math.floor(t%86400/3600),m=Math.floor(t%3600/60);return d?d+'d '+h+'h':h?h+'h '+m+'m':m+'m'}
+async function pick(i){try{await post('/api/test',{mode:0});C=await post('/api/config',{fx:i,fxs:$('sp').value,fxb:$('br').value});Native.setPref('lastfx',String(i));tiles();toast(FX[i-1][1]+' ✓');refresh()}catch(e){toast('Failed: '+e.message)}}
+async function setFx(){try{C=await post('/api/config',{fxs:$('sp').value,fxb:$('br').value});toast('Saved ✓')}catch(e){toast('Failed: '+e.message)}}
+async function lightsOff(){try{await post('/api/config',{fx:0});await post('/api/test',{mode:1,r:0,g:0,b:0});await loadCfg();refresh();toast('Lights off')}catch(e){toast('Failed: '+e.message)}}
+async function lightsOn(){const i=+Native.getPref('lastfx')||1;await pick(i)}
+async function test(m,r,g,b){const o={mode:m};if(r!==undefined)Object.assign(o,{r,g,b});try{await post('/api/test',o);refresh();toast(m?'Test on':'Test off')}catch(e){toast('Failed: '+e.message)}}
+// --- firmware updates ---
+function vnum(v){return String(v).split('.').map(n=>parseInt(n)||0).reduce((a,n)=>a*1000+n,0)}
+async function checkUpd(manual){if(!S)return;if(manual)$('upd').textContent='Checking GitHub…';
+ try{const j=await req('GET',REL+'latest.json?t='+Date.now(),null,8000);UPD=j;const cur=S.fw.split(' ')[1];
+  if(vnum(j.version)>vnum(cur)){$('upd').innerHTML=`<b>Firmware ${j.version} available</b> (you have ${cur})<br>${(j.notes||'').replace(/</g,'&lt;')}<br><button class="pri" style="margin-top:8px" onclick="install()">Install ${j.version}</button>`}
+  else if(manual)$('upd').textContent='Firmware is up to date ('+cur+') ✓'}catch(e){if(manual)$('upd').textContent='Could not reach GitHub: '+e.message}}
+function install(){const j=UPD;if(!j||!confirm('Install firmware '+j.version+'? Keep the controller plugged in.'))return;const id='u'+(++seq);
+ cbs[id]=(st,txt)=>{$('upd').textContent=txt;if(st==200){$('upd').textContent='Installing… the controller restarts in a few seconds.';let n=0;const w=setInterval(async()=>{n++;try{const s=await get('/api/status');if(s.fw.indexOf(j.version)>0){clearInterval(w);$('pg').classList.add('hide');$('upd').textContent='Updated to '+j.version+' ✓';refresh()}}catch(e){}if(n>45){clearInterval(w);$('upd').textContent='Not back yet. Unplug the controller for 30 s and plug it back in.'}},2000)}};
+ Native.installFirmware(id,IP,REL+j.file+'?t='+Date.now(),j.size||0,j.crc32||0)}
+async function start(){$('setup').classList.add('hide');$('mainui').classList.remove('hide');tiles();try{await loadCfg()}catch(e){}await refresh();checkUpd(0)}
+IP=Native.getPref('ip');if(IP)start();else{showSetup();scan()}
+setInterval(()=>{if(IP)refresh()},3000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&IP)refresh()});
+</script></body></html>
